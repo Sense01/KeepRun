@@ -112,6 +112,7 @@ header h1{font-size:22px;text-align:center}
 .cg{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center;margin-top:10px}.cg u{text-decoration:none;color:var(--mu)}
 .cg span{padding:6px 0;border-radius:50%}.cg span.on{background:var(--ac)}
 @media(max-width:640px){#feed{margin:-12px -12px 0}.post,.car,.dots{border-radius:0}}
+.fr{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--bd)}
 </style>
 </head>
 <body>
@@ -120,7 +121,7 @@ header h1{font-size:22px;text-align:center}
 <div id="tabs"><button data-v="feed" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z"/></svg>Início</button><button data-v="maps"><svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/></svg>Mapas</button><button data-v="rec" class="recb"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5" fill="currentColor"/></svg>Gravar</button><button data-v="groups"><svg viewBox="0 0 24 24"><path d="M8 3l5 5-5 5-5-5zM16 11l5 5-5 5-5-5z"/></svg>Grupos</button><button data-v="stats"><span class="avt"></span>Eu</button></div>
 <div id="toast"></div>
 <main>
-<section id="feed"><div id="sbar" class="hide"><input id="q" placeholder="Pesquisar atividades"></div><div id="wk"></div><div id="list"></div></section>
+<section id="feed"><div id="sbar" class="hide"><input id="q" placeholder="Pesquisar atividades"></div><div id="wk"></div><div id="ff"></div><div id="list"></div></section>
 <section id="detail" class="hide"></section>
 <section id="rec" class="hide"><div class="card">
 <select id="rtype"><option>Corrida</option><option>Bicicleta</option><option>Caminhada</option></select>
@@ -136,7 +137,7 @@ header h1{font-size:22px;text-align:center}
 <script>
 const $=s=>document.querySelector(s);
 let acts=[];try{acts=JSON.parse(localStorage.getItem('keeprun')||'[]')}catch(e){}
-const save=()=>{try{localStorage.setItem('keeprun',JSON.stringify(acts))}catch(e){alert('Armazenamento cheio')}};
+const save=()=>{try{localStorage.setItem('keeprun',JSON.stringify(acts))}catch(e){alert('Armazenamento cheio')}window.KR_sync&&window.KR_sync()};
 const R=Math.PI/180;
 const hav=(a,b)=>{const dl=(b[0]-a[0])*R,dn=(b[1]-a[1])*R,x=Math.sin(dl/2)**2+Math.cos(a[0]*R)*Math.cos(b[0]*R)*Math.sin(dn/2)**2;return 12742000*Math.asin(Math.sqrt(x))};
 function calc(p){let d=0,g=0;for(let i=1;i<p.length;i++){d+=hav(p[i-1],p[i]);const e=(p[i][2]||0)-(p[i-1][2]||0);if(e>0.5)g+=e}
@@ -215,9 +216,9 @@ const mk=acts.filter(a=>a.date>=m0.getTime()).reduce((q,a)=>q+a.dist,0)/1000,tk=
 const days=new Set(acts.map(a=>new Date(a.date).toDateString()));let st=0;const d=new Date();if(!days.has(d.toDateString()))d.setDate(d.getDate()-1);while(days.has(d.toDateString())){st++;d.setDate(d.getDate()-1)}
 const ch=(n,v,g)=>`<div class="card"><b>${n}</b><div class="prog"><i style="width:${Math.min(100,v/g*100)}%"></i></div><div class="mu">${Math.min(v,g).toFixed(1)} / ${g} km</div></div>`;
 const bd=[['Primeiro passo',acts.length>=1],['5 km numa atividade',best>=5],['10 km numa atividade',best>=10],['Meia maratona',best>=21.1],['100 km totais',tk>=100],['3 dias seguidos',st>=3]];
-$('#groups').innerHTML=`<h3>Desafios</h3>${ch('Desafio do mês: 50 km',mk,50)}${ch('Desafio 100 km',tk,100)}<div class="card"><b>Sequência</b><div class="big">${st} dia${st===1?'':'s'}</div></div>
+$('#groups').innerHTML=`<div id="friends"></div><h3>Desafios</h3>${ch('Desafio do mês: 50 km',mk,50)}${ch('Desafio 100 km',tk,100)}<div class="card"><b>Sequência</b><div class="big">${st} dia${st===1?'':'s'}</div></div>
 <h3>Conquistas</h3><div class="badges">${bd.map(x=>`<div class="bdg ${x[1]?'on':''}">${x[1]?'🏅':'🔒'}<span>${x[0]}</span></div>`).join('')}</div>
-<div class="card mu">Clubes e desafios partilhados com outros utilizadores chegam com o backend.</div>`}
+<div class="card mu">Clubes e desafios partilhados chegam em breve.</div>`;window.KR_friends&&window.KR_friends()}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let map;
 function show(a){go('detail');const d=$('#detail');
@@ -261,9 +262,9 @@ for(let i=7;i>=0;i--){const a=mon.getTime()-i*6048e5,b=a+6048e5;wk.push({l:new D
 const mx=Math.max(...wk.map(w=>w.v),1);
 const runs=acts.filter(a=>a.type==='Corrida'&&a.dist>1000);const best=runs.sort((a,b)=>a.dur/a.dist-b.dur/b.dist)[0];
 const longest=[...acts].sort((a,b)=>b.dist-a.dist)[0];
-s.innerHTML=`<div class="card"><b>${esc(ls('kr_name','Atleta'))}</b> <button class="btn" id="nm">Mudar nome</button></div><div class="card"><div class="row"><div><div class="big">${acts.length}</div><div class="mu">atividades</div></div><div><div class="big">${(tot.d/1000).toFixed(1)}</div><div class="mu">km totais</div></div><div><div class="big">${(tot.t/3600).toFixed(1)}</div><div class="mu">horas</div></div><div><div class="big">${Math.round(tot.e)}</div><div class="mu">m subida</div></div></div></div>
+s.innerHTML=`<div id="acct"></div><div class="card"><b>${esc(ls('kr_name','Atleta'))}</b> <button class="btn" id="nm">Mudar nome</button></div><div class="card"><div class="row"><div><div class="big">${acts.length}</div><div class="mu">atividades</div></div><div><div class="big">${(tot.d/1000).toFixed(1)}</div><div class="mu">km totais</div></div><div><div class="big">${(tot.t/3600).toFixed(1)}</div><div class="mu">horas</div></div><div><div class="big">${Math.round(tot.e)}</div><div class="mu">m subida</div></div></div></div>
 <div class="card"><b>Km por semana</b><div class="bar" style="margin:14px 0 24px">${wk.map(w=>`<div style="height:${w.v/mx*100}%" title="${w.v.toFixed(1)} km"><span>${w.l}</span></div>`).join('')}</div></div>
-<div class="card"><b>Recordes pessoais</b><p>Maior distância: ${longest?(longest.dist/1000).toFixed(2)+' km ('+esc(longest.name)+')':'--'}</p><p>Melhor ritmo (corrida): ${best?fP(best.dist,best.dur)+' ('+esc(best.name)+')':'--'}</p></div>`;$('#nm').onclick=()=>{const n=prompt('O teu nome',ls('kr_name','Atleta'));if(n){ss('kr_name',n.slice(0,30));renderStats();hello()}}}
+<div class="card"><b>Recordes pessoais</b><p>Maior distância: ${longest?(longest.dist/1000).toFixed(2)+' km ('+esc(longest.name)+')':'--'}</p><p>Melhor ritmo (corrida): ${best?fP(best.dist,best.dur)+' ('+esc(best.name)+')':'--'}</p></div>`;window.KR_acct&&window.KR_acct();$('#nm').onclick=()=>{const n=prompt('O teu nome',ls('kr_name','Atleta'));if(n){ss('kr_name',n.slice(0,30));renderStats();hello()}}}
 function go(v){document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hide',s.id!==v));
 document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='detail'?'feed':v)));window.scrollTo(0,0);
 if(v==='stats')renderStats();if(v==='maps')renderMaps();if(v==='groups')renderGroups();if(v==='rec'&&rmap)setTimeout(()=>rmap.invalidateSize(),50)}
@@ -272,5 +273,6 @@ hello();renderList();
 (()=>{const sp=$('#splash');let done=0;const end=()=>{if(done)return;done=1;sp.classList.add('out');setTimeout(()=>sp.remove(),700)};
 sp.onclick=end;setTimeout(end,2800)})();
 </script>
+<script type="module" src="social.js"></script>
 </body>
 </html>
