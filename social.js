@@ -93,5 +93,5 @@ function fpost(a){const pts=[];for(let i=0;i+1<(a.r||[]).length;i+=2)pts.push([a
   ${pts.length>1?`<div class="mapbox" style="cursor:default">${thumb(pts)}</div>`:''}<div style="height:12px"></div></div>`}
 function renderFF(){const el=$('#ff');if(el)el.innerHTML=FA.length?'<h3 style="margin:8px 4px">Amigos</h3>'+FA.map(fpost).join(''):''}
 function renderAll(){renderAcct();renderFriends();renderFF()}
-window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;
+window.KR_fa=()=>FA;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;
 init();

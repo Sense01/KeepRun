@@ -134,7 +134,7 @@ input,select,textarea{font-size:16px;-webkit-user-select:text;user-select:text}
 <div id="tabs"><button data-v="feed" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z"/></svg>Início</button><button data-v="maps"><svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/></svg>Mapas</button><button data-v="rec" class="recb"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5" fill="currentColor"/></svg>Gravar</button><button data-v="groups"><svg viewBox="0 0 24 24"><path d="M8 3l5 5-5 5-5-5zM16 11l5 5-5 5-5-5z"/></svg>Grupos</button><button data-v="stats"><span class="avt"></span>Eu</button></div>
 <div id="toast"></div>
 <main>
-<section id="feed"><div id="sbar" class="hide"><input id="q" placeholder="Pesquisar atividades"></div><div id="wk"></div><div id="ff"></div><div id="list"></div></section>
+<section id="feed"><div id="sbar" class="hide"><input id="q" placeholder="Pesquisar atividades"></div><div id="wk"></div><div id="wp"></div><div id="ff"></div><div id="list"></div></section>
 <section id="detail" class="hide"></section>
 <section id="rec" class="hide"><div class="card">
 <select id="rtype"><option>Corrida</option><option>Bicicleta</option><option>Caminhada</option></select>
@@ -145,6 +145,7 @@ input,select,textarea{font-size:16px;-webkit-user-select:text;user-select:text}
 <section id="stats" class="hide"></section>
 <section id="maps" class="hide"><div id="amap"></div></section>
 <section id="groups" class="hide"></section>
+<section id="wo" class="hide"></section>
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -215,7 +216,7 @@ c.querySelector('.lk').onclick=()=>{a.k=!a.k;save();renderCards()};
 c.querySelector('.cmt').onclick=()=>{const t=prompt('Comentário');if(t){(a.c=a.c||[]).push(t.slice(0,300));save();renderCards()}};
 c.querySelector('.shr').onclick=()=>{const t=`${a.name} — ${(a.dist/1000).toFixed(2)} km em ${fTL(a.dur)} #KeepRun`;if(navigator.share)navigator.share({title:'KeepRun',text:t}).catch(()=>{});else{try{navigator.clipboard.writeText(t)}catch(e){}toast('Texto copiado')}};
 l.appendChild(c)})}
-function renderList(){renderWeek();renderCards();hello()}
+function renderList(){renderWeek();renderCards();hello();window.renderWP&&renderWP()}
 $('#q').oninput=renderCards;
 $('#sb').onclick=()=>{go('feed');const b=$('#sbar');b.classList.toggle('hide');if(!b.classList.contains('hide'))$('#q').focus();else{$('#q').value='';renderCards()}};
 $('#chat').onclick=()=>toast('Mensagens chegam com o backend');
@@ -279,8 +280,8 @@ s.innerHTML=`<div id="acct"></div><div class="card"><b>${esc(ls('kr_name','Atlet
 <div class="card"><b>Km por semana</b><div class="bar" style="margin:14px 0 24px">${wk.map(w=>`<div style="height:${w.v/mx*100}%" title="${w.v.toFixed(1)} km"><span>${w.l}</span></div>`).join('')}</div></div>
 <div class="card"><b>Recordes pessoais</b><p>Maior distância: ${longest?(longest.dist/1000).toFixed(2)+' km ('+esc(longest.name)+')':'--'}</p><p>Melhor ritmo (corrida): ${best?fP(best.dist,best.dur)+' ('+esc(best.name)+')':'--'}</p></div>`;window.KR_acct&&window.KR_acct();$('#nm').onclick=()=>{const n=prompt('O teu nome',ls('kr_name','Atleta'));if(n){ss('kr_name',n.slice(0,30));renderStats();hello()}}}
 function go(v){window.fixBar&&setTimeout(window.fixBar,50);document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hide',s.id!==v));
-document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='detail'?'feed':v)));window.scrollTo(0,0);
-if(v==='stats')renderStats();if(v==='maps')renderMaps();if(v==='groups')renderGroups();if(v==='rec'&&rmap)setTimeout(()=>rmap.invalidateSize(),50)}
+document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='detail'||v==='wo'?'feed':v)));window.scrollTo(0,0);
+if(v==='stats')renderStats();if(v==='maps')renderMaps();if(v==='groups')renderGroups();if(v==='wo')window.renderWO&&renderWO();if(v==='rec'&&rmap)setTimeout(()=>rmap.invalidateSize(),50)}
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.v));
 hello();renderList();
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
@@ -296,6 +297,7 @@ T.style.bottom='auto';T.style.top=(H-T.offsetHeight)+'px'};
 if(window.visualViewport)visualViewport.addEventListener('resize',fix);
 [0,300,1000,2500].forEach(t=>setTimeout(fix,t));window.fixBar=fix})();
 </script>
+<script src="treinos.js"></script>
 <script type="module" src="social.js"></script>
 </body>
 </html>
