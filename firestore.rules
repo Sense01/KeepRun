@@ -1,23 +1,73 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me(uid) { return request.auth != null && request.auth.uid == uid; }
+
+    // Perfil: leitura individual (sem listagem).
     match /users/{uid} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if me(uid)
+        && request.resource.data.keys().hasOnly(['name', 'photo', 'code'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && request.resource.data.photo is string && request.resource.data.photo.size() <= 500
+        && request.resource.data.code is string && request.resource.data.code.size() <= 8;
+      allow delete: if me(uid);
+
       match /friends/{fid} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-        allow create, update: if request.auth != null && request.auth.uid == uid;
-        allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == fid);
+        allow read: if me(uid);
+        allow create, update: if me(uid)
+          && request.resource.data.keys().hasOnly(['name', 't'])
+          && request.resource.data.name is string && request.resource.data.name.size() <= 60;
+        allow delete: if me(uid) || me(fid);
       }
     }
-    match /requests/{id} {
-      allow create: if request.auth != null && request.resource.data.from == request.auth.uid && request.resource.data.status == 'pending';
-      allow read, delete: if request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
-      allow update: if request.auth != null && resource.data.to == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+    // Codigos de amigo: so se le um codigo conhecido (nao se lista) e nao se toma o de outra pessoa.
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'name'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'name'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
+
+    // Pedidos de amizade: id = destinatario_remetente (um por par), remetente verificado.
+    match /requests/{id} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['from', 'fromName', 'to', 'status', 't'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string && request.resource.data.to != request.auth.uid
+        && id == request.resource.data.to + '_' + request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.fromName is string && request.resource.data.fromName.size() <= 60;
+      allow read, delete: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow update: if signedIn() && resource.data.to == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status == 'accepted';
+    }
+
+    // Atividades partilhadas: so o dono escreve; so amigos (que o dono aceitou) leem.
     match /activities/{uid}/items/{aid} {
-      allow read: if request.auth != null && (request.auth.uid == uid || exists(/databases/$(database)/documents/users/$(uid)/friends/$(request.auth.uid)));
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow read: if signedIn() && (request.auth.uid == uid
+        || exists(/databases/$(database)/documents/users/$(uid)/friends/$(request.auth.uid)));
+      allow create, update: if me(uid)
+        && request.resource.data.keys().hasOnly(['title', 'type', 'date', 'dist', 'dur', 'elev', 'r', 'eff', 'desc'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 80
+        && request.resource.data.type is string && request.resource.data.type.size() <= 40
+        && request.resource.data.date is number && request.resource.data.dist is number
+        && request.resource.data.dur is number && request.resource.data.elev is number
+        && request.resource.data.eff is number
+        && request.resource.data.desc is string && request.resource.data.desc.size() <= 300
+        && request.resource.data.r is list && request.resource.data.r.size() <= 170;
+      allow delete: if me(uid);
     }
   }
 }

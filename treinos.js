@@ -55,13 +55,13 @@ function ctx(){const now=Date.now(),a28=acts.filter(a=>a.date>=now-28*864e5),a7=
 const l7=a7.reduce((q,a)=>q+a.dur,0),l28=a28.reduce((q,a)=>q+a.dur,0)/4,cnt={};a28.forEach(a=>cnt[AL[a.type]||a.type]=(cnt[AL[a.type]||a.type]||0)+1);
 const fav=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0]||'Corrida',last=acts.length?Math.max(...acts.map(a=>a.date)):0,rc=acts.slice(0,10);
 const av=rc.length?rc.reduce((q,a)=>q+a.dur,0)/rc.length/60:40;
-const nv=a28.length<3;return{nov:nv,rn:a28.filter(a=>(AL[a.type]||a.type)==='Corrida').length,fat:a28.length>=4&&l7>l28*1.35&&l7>3600,fav,gap:last?Math.floor((now-last)/864e5):99,dur:nv?20:Math.min(70,Math.max(25,Math.round(av/5)*5))}}
+const nv=a28.length<3&&acts.length<10,ret=a28.length<3&&acts.length>=10;return{nov:nv,ret,rn:a28.filter(a=>(AL[a.type]||a.type)==='Corrida').length,fat:a28.length>=4&&l7>l28*1.35&&l7>3600,fav,gap:last?Math.floor((now-last)/864e5):99,dur:nv?20:ret?Math.min(60,Math.max(25,Math.round(av*0.7/5)*5)):Math.min(70,Math.max(25,Math.round(av/5)*5))}}
 const intent=()=>INT[ls('kr_intent','base')]?ls('kr_intent','base'):'base';
 function picks(it){const c=ctx(),L=lib(c.dur,c.nov,c.rn),r=rngf(wkId(Date.now())%100000+it.charCodeAt(0)*13),B=c.nov?L.filter(w=>NOV.has(w.name)):L;
 let P=B.filter(w=>w.intents.includes(it));if(P.length<3)P=B;let pool=shuf(P,r).sort((a,b)=>(a.sport===c.fav?0:1)-(b.sport===c.fav?0:1));
 const cnt={},out=[];if(c.fat&&it!=='recup'){const rc=L.filter(w=>w.intents.includes('recup')&&w.sport===c.fav)[0]||L.find(w=>w.intents.includes('recup'));if(rc)out.push(rc)}
 pool.forEach(w=>{cnt[w.sport]=(cnt[w.sport]||0);if(out.length<6&&cnt[w.sport]<3&&!out.includes(w)){cnt[w.sport]++;out.push(w)}});return out}
-const msg=()=>{const c=ctx();return c.nov?'Para começar, sugerimos treinos curtos e suaves. Aumentamos aos poucos à medida que treinas.':c.fat?'Fizeste bastante esta semana: sugerimos começar por um treino de recuperação.':(acts.length&&c.gap>=5?`Há ${c.gap} dias que não treinas. Começa com algo leve.`:'Sugestões novas todas as segundas-feiras, a pensar na tua intenção e no teu histórico.')};
+const msg=()=>{const c=ctx();return c.ret?'Bem-vindo de volta! Começa com treinos um pouco mais curtos e vai subindo.':c.nov?'Para começar, sugerimos treinos curtos e suaves. Aumentamos aos poucos à medida que treinas.':c.fat?'Fizeste bastante esta semana: sugerimos começar por um treino de recuperação.':(acts.length&&c.gap>=5?`Há ${c.gap} dias que não treinas. Começa com algo leve.`:'Sugestões novas todas as segundas-feiras, a pensar na tua intenção e no teu histórico.')};
 // ---------- áudio ----------
 let ac;const AC=()=>{try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){}return ac};
 const tone=(f,t0,d)=>{const a=AC();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime+t0;o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(.35,t+.02);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+.05)};
@@ -80,39 +80,41 @@ g.querySelector('#gx').onclick=()=>g.classList.remove('on');g.querySelector('#gg
 g.querySelector('#gsh').onclick=()=>{if(navigator.share)navigator.share({title:w.name,text:txt(w)}).catch(()=>{});else{try{navigator.clipboard.writeText(txt(w))}catch(e){}toast('Treino copiado')}}}
 const EFF=n=>n<=2?'Muito fácil':n<=4?'Fácil':n<=6?'Moderado':n<=8?'Difícil':'Máximo';
 const OUT=new Set(['Corrida','Trail','Caminhada','Caminhada nórdica','Hiking','Bicicleta','Ciclismo de montanha','Patinagem','Remo','Caiaque','Stand-up paddle','Esqui de fundo','Triatlo']);
-function saveForm(w,o){const g=G(),gps=o.pts.length>1,c=gps?calc(o.pts):{dist:0,elev:0};
+function saveForm(w,o){const g=G(),hasZ=(()=>{try{return !!JSON.parse(ls('kr_pz','null'))}catch(e){return false}})(),gps=o.pts.length>1,c=gps?calc(o.pts):{dist:0,elev:0};
 g.classList.add('on');
 g.innerHTML=`<div class="gh"><b>Guardar atividade</b></div><p class="mu">${ic(w.sport)} ${esc(w.sport)} · ${fT(o.elapsed)}${c.dist?' · '+(c.dist/1000).toFixed(2)+' km':''}</p>
 <label class="lb">Título</label><input id="sf-t" value="${esc(w.name)}" maxlength="60" style="width:100%">
 <label class="lb">Descrição</label><textarea id="sf-d" rows="3" maxlength="300" placeholder="Como correu?" style="width:100%"></textarea>
 <label class="lb">Esforço percebido: <b id="sf-ev" style="color:var(--tx)">5</b>/10 · <span id="sf-el">Moderado</span></label><input id="sf-e" type="range" min="1" max="10" value="5" style="width:100%">
 <label class="lb">Visibilidade</label><label class="ck"><input type="checkbox" id="sf-s" ${ls('kr_share','1')==='1'?'checked':''}> Partilhar com amigos</label>
-${gps?'<label class="ck"><input type="checkbox" id="sf-m" checked> Mostrar o percurso no mapa</label>':''}
+${gps?`<label class="ck"><input type="checkbox" id="sf-m" ${hasZ?'checked':''}> Mostrar o percurso no mapa aos amigos</label>${hasZ?'':'<div class="mu">Define uma zona de privacidade em Eu para esconder a tua casa.</div>'}`:''}
 <div class="gb"><button class="btn pri" id="sf-ok">Guardar atividade</button> <button class="btn" id="sf-no">Descartar</button></div>`;
 const q=x=>g.querySelector(x);
 q('#sf-e').oninput=e=>{q('#sf-ev').textContent=e.target.value;q('#sf-el').textContent=EFF(+e.target.value)};
 q('#sf-no').onclick=()=>{if(confirm('Descartar esta atividade?'))g.classList.remove('on')};
-q('#sf-ok').onclick=()=>{const a={id:Date.now()+Math.random(),name:(q('#sf-t').value.trim()||w.name).slice(0,60),type:w.sport,date:o.start,pts:o.pts,dist:c.dist,dur:Math.round(o.elapsed),elev:c.elev,eff:+q('#sf-e').value,desc:q('#sf-d').value.trim().slice(0,300),share:q('#sf-s').checked,showMap:q('#sf-m')?q('#sf-m').checked:true,workout:w.name};
+q('#sf-ok').onclick=()=>{const a={id:Date.now()+Math.random(),name:(q('#sf-t').value.trim()||w.name).slice(0,60),type:w.sport,date:o.start,pts:thin(o.pts),dist:c.dist,dur:Math.round(o.elapsed),elev:c.elev,eff:+q('#sf-e').value,desc:q('#sf-d').value.trim().slice(0,300),share:q('#sf-s').checked,showMap:q('#sf-m')?q('#sf-m').checked:false,workout:w.name};
 acts.push(a);save();let d=[];try{d=JSON.parse(ls('kr_done','[]'))}catch(e){}d.unshift({name:a.name,sport:w.sport,date:a.date,dur:Math.max(1,Math.round(a.dur/60))});ss('kr_done',JSON.stringify(d.slice(0,50)));
 g.classList.remove('on');renderList();go('feed');toast('Atividade guardada')}}
-async function runW(w,gps){const g=G();AC();let i=0,end=0,left=0,pause=false,pS=0,pz=0,last=-1,tm,wl,wid2=null;const start=Date.now(),pts=[],tot=w.steps.reduce((q,x)=>q+x.s,0);
-try{wl=await navigator.wakeLock.request('screen')}catch(e){}
-if(gps&&navigator.geolocation)wid2=navigator.geolocation.watchPosition(p=>{if(p.coords.accuracy<=40&&!pause)pts.push([p.coords.latitude,p.coords.longitude,p.coords.altitude||0,p.timestamp])},()=>{},{enableHighAccuracy:true});
+async function runW(w,gps){const g=G();AC();let i=0,left=0,pause=false,pS=0,pt=0,off=0,last=-1,tm,wl=null,wid2=null;const start=Date.now(),pts=[],cum=[0];
+w.steps.forEach(x=>cum.push(cum[cum.length-1]+x.s));const tot=cum[cum.length-1];
+const getWL=async()=>{try{wl=await navigator.wakeLock.request('screen')}catch(e){}},vc=()=>{if(!document.hidden)getWL()};
+await getWL();document.addEventListener('visibilitychange',vc);
+if(gps&&navigator.geolocation)wid2=navigator.geolocation.watchPosition(p=>{if(p.coords.accuracy<=40&&!pause)pts.push([p.coords.latitude,p.coords.longitude,p.coords.altitude,p.timestamp])},()=>{},{enableHighAccuracy:true});
 g.innerHTML=`<div class="gh"><b>${esc(w.name)}</b><button class="btn" id="gx">Terminar</button></div><div class="gz" id="gz"></div><div class="gn" id="gn"></div><div class="gt" id="gt"></div><p class="mu" id="gp"></p><div class="prog"><i id="gpr"></i></div><p class="mu" id="gnx"></p>
 <div class="gb"><button class="btn" id="gpa">Pausa</button> <button class="btn" id="gsk">Saltar</button></div>`;
-const q=x=>g.querySelector(x),stop=()=>{clearInterval(tm);try{wl&&wl.release()}catch(e){}if(wid2!=null)navigator.geolocation.clearWatch(wid2);};
-const paint=()=>{const x=w.steps[i],pre=w.steps.slice(0,i).reduce((a,b)=>a+b.s,0);q('#gz').textContent=x.z;q('#gn').textContent=x.n;q('#gp').textContent=x.tip;q('#gt').textContent=fT(left);
-q('#gpr').style.width=Math.min(100,(pre+x.s-left)/tot*100)+'%';q('#gnx').textContent=w.steps[i+1]?'A seguir: '+w.steps[i+1].n+' ('+fT(w.steps[i+1].s)+')':'Último passo'};
-const fin=early=>{stop();const el=Math.round((Date.now()-start-pz-(pause?Date.now()-pS:0))/1000);
+const q=x=>g.querySelector(x),sched=()=>(Date.now()-start-pt+off)/1000,idxAt=t=>{for(let k=0;k<w.steps.length;k++)if(t<cum[k+1])return k;return w.steps.length};
+const stop=()=>{clearInterval(tm);document.removeEventListener('visibilitychange',vc);try{wl&&wl.release()}catch(e){}if(wid2!=null)navigator.geolocation.clearWatch(wid2)};
+const prog=()=>{q('#gpr').style.width=Math.min(100,sched()/tot*100)+'%'};
+const paint=()=>{const x=w.steps[i];q('#gz').textContent=x.z;q('#gn').textContent=x.n;q('#gp').textContent=x.tip;q('#gt').textContent=fT(left);prog();q('#gnx').textContent=w.steps[i+1]?'A seguir: '+w.steps[i+1].n+' ('+fT(w.steps[i+1].s)+')':'Último passo'};
+const fin=early=>{stop();const el=Math.round((Date.now()-start-pt-(pause?Date.now()-pS:0))/1000);
 if(early&&el<60){g.classList.remove('on');return}
 if(!early)chime('done');
 saveForm(w,{start,elapsed:el,pts})};
-const set=n=>{i=n;if(i>=w.steps.length)return fin(false);const x=w.steps[i];left=x.s;end=Date.now()+left*1000;last=-1;paint();chime(isRest(x)?'rest':'work')};
+const set=n=>{i=n;if(i>=w.steps.length)return fin(false);const x=w.steps[i];left=Math.max(0,Math.ceil(cum[i+1]-sched()));last=-1;paint();chime(isRest(x)?'rest':'work')};
 q('#gx').onclick=()=>{if(confirm('Terminar o treino?'))fin(true)};
-q('#gsk').onclick=()=>set(i+1);
-q('#gpa').onclick=()=>{pause=!pause;q('#gpa').textContent=pause?'Continuar':'Pausa';if(pause)pS=Date.now();else{pz+=Date.now()-pS;end=Date.now()+left*1000}};
-tm=setInterval(()=>{if(pause)return;left=Math.max(0,Math.ceil((end-Date.now())/1000));if(left===last)return;last=left;const x=w.steps[i];q('#gt').textContent=fT(left);
-q('#gpr').style.width=Math.min(100,(w.steps.slice(0,i).reduce((a,b)=>a+b.s,0)+x.s-left)/tot*100)+'%';if(left===0)set(i+1)},300);
+q('#gsk').onclick=()=>{off+=cum[i+1]-sched();set(i+1)};
+q('#gpa').onclick=()=>{pause=!pause;q('#gpa').textContent=pause?'Continuar':'Pausa';if(pause)pS=Date.now();else pt+=Date.now()-pS};
+tm=setInterval(()=>{if(pause)return;const t=sched(),k=idxAt(t);if(k!==i)return set(k);left=Math.max(0,Math.ceil(cum[i+1]-t));if(left===last)return;last=left;q('#gt').textContent=fT(left);prog()},300);
 set(0)}
 // ---------- interface ----------
 let sel='Sugestões',pos=null;
@@ -121,13 +123,19 @@ function routes(){const c=ctx(),b=AL[sel]||sel,ty=['Corrida','Bicicleta','Caminh
 acts.filter(a=>(AL[a.type]||a.type)===ty&&a.pts&&a.pts.length>1).slice(0,8).forEach(a=>out.push({t:a.name,d:a.dist,src:'Tu',pts:a.pts,a}));
 (window.KR_fa?KR_fa():[]).filter(x=>(AL[x.type]||x.type)===ty&&x.r&&x.r.length>3).forEach(x=>{const p=[];for(let i=0;i+1<x.r.length;i+=2)p.push([x.r[i],x.r[i+1]]);out.push({t:x.title,d:x.dist,src:x.fname,pts:p})});
 if(pos)out.forEach(o=>o.near=hav(pos,o.pts[0]));out.sort((a,b)=>pos?a.near-b.near:0);return{ty,out:out.slice(0,6)}}
+function openRoute(o){const g=G();g.classList.add('on');
+g.innerHTML=`<div class="gh"><b>${esc(o.t)}</b><button class="btn" id="gx">Fechar</button></div><p class="mu">${(Number(o.d)/1000||0).toFixed(1)} km · ${esc(o.src)}</p><div id="rm2" style="height:55vh;border-radius:12px"></div>`;
+g.querySelector('#gx').onclick=()=>g.classList.remove('on');
+if(!window.L){g.querySelector('#rm2').innerHTML='<p class="mu" style="padding:16px">O mapa não está disponível sem ligação.</p>';return}
+const m=L.map('rm2');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(m);
+const pl=L.polyline(o.pts.map(p=>[p[0],p[1]]),{color:'#fc4c02',weight:4}).addTo(m);m.fitBounds(pl.getBounds(),{padding:[20,20]})}
 function renderRoutes(){const el=$('#wr');if(!el)return;const {ty,out}=routes();
 el.innerHTML=`<p class="mu">Percursos de ${ty.toLowerCase()} feitos por ti e pelos teus amigos. <button class="btn" id="wnear">Perto de mim</button></p>`+(out.length?out.map((o,i)=>`<div class="card wr" data-i="${i}">${thumb(o.pts)}<div><b>${esc(o.t)}</b><div class="mu">${(o.d/1000).toFixed(1)} km · ${esc(o.src)}${o.near!=null?' · a '+(o.near/1000).toFixed(1)+' km de ti':''}</div></div></div>`).join(''):'<p class="mu">Ainda não há percursos. Grava ou importa atividades, e os percursos dos amigos também aparecem aqui.</p>');
-el.querySelectorAll('.wr').forEach(e=>e.onclick=()=>{const o=out[+e.dataset.i];if(o.a)show(o.a)});
+el.querySelectorAll('.wr').forEach(e=>e.onclick=()=>{const o=out[+e.dataset.i];if(o.a)show(o.a);else openRoute(o)});
 $('#wnear').onclick=()=>{if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{pos=[p.coords.latitude,p.coords.longitude];renderRoutes()},()=>toast('Não consegui obter a localização'))}}
-window.renderWO=function(){const el=$('#wo');if(!el)return;const c=ctx(),it=intent(),list=sel==='Sugestões'?picks(it):forSport(sel,c.dur,c.nov,c.rn);let dn=[];try{dn=JSON.parse(ls('kr_done','[]'))}catch(e){}
+window.renderWO=function(){const el=$('#wo');if(!el)return;const oldC=el.querySelector('#spc'),sx=oldC?oldC.scrollLeft:0,oy=window.scrollY;const c=ctx(),it=intent(),list=sel==='Sugestões'?picks(it):forSport(sel,c.dur,c.nov,c.rn);let dn=[];try{dn=JSON.parse(ls('kr_done','[]'))}catch(e){}
 el.innerHTML=`<p><button class="btn" id="wb">← Voltar</button></p><div class="card"><b>Treinos para ti</b><p class="mu">${msg()}</p><div class="mu">A tua intenção:</div><div class="chips" style="margin:8px 0 0">${Object.keys(INT).map(k=>`<button class="chip ${k===it?'on':''}" data-in="${k}">${INT[k]}</button>`).join('')}</div></div>
-<div class="chips">${['Sugestões',...SPORTS].map(s=>`<button class="chip ${s===sel?'on':''}" data-sp="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+<div class="chips" id="spc">${['Sugestões',...SPORTS].map(s=>`<button class="chip ${s===sel?'on':''}" data-sp="${esc(s)}">${esc(s)}</button>`).join('')}</div>
 <div id="wl">${list.map(wcard).join('')}</div><h3>Onde treinar</h3><div id="wr"></div>
 <h3>Treinos concluídos</h3>${dn.length?dn.slice(0,5).map(d=>`<div class="fr"><span>${ic(d.sport)} ${esc(d.name)}</span><span class="mu">${d.dur} min · ${new Date(d.date).toLocaleDateString('pt-PT')}</span></div>`).join(''):'<p class="mu">Ainda sem treinos concluídos.</p>'}
 <p style="margin-top:16px"><label><input type="checkbox" id="waud" ${ls('kr_audio','1')==='1'?'checked':''}> Sons (mudança de exercício e quilómetros gravados)</label></p>`;
@@ -135,6 +143,7 @@ el.querySelector('#wb').onclick=()=>go('feed');
 el.querySelectorAll('[data-in]').forEach(b=>b.onclick=()=>{ss('kr_intent',b.dataset.in);renderWO();renderWP()});
 el.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{sel=b.dataset.sp;renderWO()});
 el.querySelectorAll('.wc').forEach(e=>e.onclick=()=>openW(list[+e.dataset.i]));
+const spc=el.querySelector('#spc');if(oldC)spc.scrollLeft=sx;else{const on=spc.querySelector('.on');if(on)spc.scrollLeft=Math.max(0,on.offsetLeft-20)}window.scrollTo(0,oy);
 el.querySelector('#waud').onchange=e=>ss('kr_audio',e.target.checked?'1':'0');renderRoutes()};
 window.renderWP=function(){const el=$('#wp');if(!el)return;const p=picks(intent()).slice(0,3);
 el.innerHTML=`<div class="wpc"><div class="sh"><b>Treinos para ti</b><a id="wpall">Ver todos</a></div><div class="wph">${p.map((w,i)=>`<div class="wmini" data-i="${i}"><span>${ic(w.sport)}</span><b>${esc(w.name)}</b><small>${esc(w.sport)} · ${w.dur} min</small></div>`).join('')}</div></div>`;

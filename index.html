@@ -130,7 +130,7 @@ input,select,textarea{font-size:16px;-webkit-user-select:text;user-select:text}
 </head>
 <body>
 <div id="splash" aria-hidden="true"><svg viewBox="0 0 300 120"><path pathLength="600" d="M10 100 C50 100 60 30 100 40 S150 100 190 70 S250 20 285 30"/><circle cx="285" cy="30" r="9"/></svg><h2>KeepRun</h2><p>Corre. Regista. Evolui.</p></div>
-<header><div class="hl"><label class="ib" title="Importar GPX"><svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg><input id="file" type="file" accept=".gpx" multiple hidden></label><button class="ib" id="sb" title="Pesquisar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg></button></div><h1>KeepRun</h1><div class="hr"><button class="ib" id="chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button><button class="ib" id="bell"><svg viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4zM10 21h4"/></svg></button></div></header>
+<header><div class="hl"><label class="ib" title="Importar GPX" aria-label="Importar GPX"><svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg><input id="file" type="file" accept=".gpx" multiple hidden></label><button class="ib" id="sb" title="Pesquisar" aria-label="Pesquisar atividades"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg></button></div><h1>KeepRun</h1><div class="hr"><button class="ib" id="chat" aria-label="Mensagens"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button><button class="ib" id="bell" aria-label="Notificações"><svg viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4zM10 21h4"/></svg></button></div></header>
 <div id="tabs"><button data-v="feed" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z"/></svg>Início</button><button data-v="maps"><svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/></svg>Mapas</button><button data-v="rec" class="recb"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5" fill="currentColor"/></svg>Gravar</button><button data-v="groups"><svg viewBox="0 0 24 24"><path d="M8 3l5 5-5 5-5-5zM16 11l5 5-5 5-5-5z"/></svg>Grupos</button><button data-v="stats"><span class="avt"></span>Eu</button></div>
 <div id="toast"></div>
 <main>
@@ -151,28 +151,36 @@ input,select,textarea{font-size:16px;-webkit-user-select:text;user-select:text}
 <script>
 const $=s=>document.querySelector(s);
 let acts=[];try{acts=JSON.parse(localStorage.getItem('keeprun')||'[]')}catch(e){}
-const save=()=>{try{localStorage.setItem('keeprun',JSON.stringify(acts))}catch(e){alert('Armazenamento cheio')}window.KR_sync&&window.KR_sync()};
+const ATTR='© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+const idbP=new Promise(res=>{try{const r=indexedDB.open('keeprun',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);r.onblocked=()=>res(null)}catch(e){res(null)}});
+const idbGet=async k=>{const d=await idbP;if(!d)return;return new Promise(res=>{try{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res()}catch(e){res()}})};
+const idbSet=async(k,v)=>{const d=await idbP;if(!d)return false;return new Promise(res=>{try{const t=d.transaction('kv','readwrite');v==null?t.objectStore('kv').delete(k):t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>res(false);t.onabort=()=>res(false)}catch(e){res(false)}})};
+const loaded=(async()=>{const s=await idbGet('acts');if(Array.isArray(s)){const ids=new Set(acts.map(a=>a.id));let n=0;s.forEach(a=>{if(!ids.has(a.id)){acts.push(a);n++}});if(n&&window.renderList)renderList()}})();
+let warned=0;
+const save=()=>{window.KR_sync&&window.KR_sync();loaded.then(()=>idbSet('acts',acts)).then(ok=>{if(ok){try{localStorage.removeItem('keeprun')}catch(e){}if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}else{try{localStorage.setItem('keeprun',JSON.stringify(acts))}catch(e){if(!warned++)alert('Sem espaço para guardar. Exporta e apaga atividades antigas.')}}})};
 const R=Math.PI/180;
 const hav=(a,b)=>{const dl=(b[0]-a[0])*R,dn=(b[1]-a[1])*R,x=Math.sin(dl/2)**2+Math.cos(a[0]*R)*Math.cos(b[0]*R)*Math.sin(dn/2)**2;return 12742000*Math.asin(Math.sqrt(x))};
-function calc(p){let d=0,g=0;for(let i=1;i<p.length;i++){d+=hav(p[i-1],p[i]);const e=(p[i][2]||0)-(p[i-1][2]||0);if(e>0.5)g+=e}
+function calc(p){let d=0,g=0,ref=null;for(let i=0;i<p.length;i++){if(i)d+=hav(p[i-1],p[i]);const e=p[i][2];if(e==null||!isFinite(e))continue;if(ref==null)ref=e;else if(e-ref>=3){g+=e-ref;ref=e}else if(ref-e>=3)ref=e}
 const t=p.length>1?(p[p.length-1][3]-p[0][3])/1000:0;return{dist:d,dur:t,elev:g}}
+function thin(p){const o=[],r=(x,n)=>Math.round(x*n)/n;let l=null;p.forEach((q,i)=>{const e=q[2]==null||!isFinite(q[2])?null:r(q[2],10),pt=[r(q[0],1e5),r(q[1],1e5),e,q[3]];
+if(!l||i===p.length-1||hav(l,pt)>=4||q[3]-l[3]>=10000){o.push(pt);l=pt}});return o}
 const fT=s=>{s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=s%60,z=n=>String(n).padStart(2,'0');return(h?h+':':'')+z(m)+':'+z(c)}
 const fP=(d,t)=>d>0?fT(t/(d/1000))+'/km':'--';
 const fV=(d,t)=>t>0?(d/t*3.6).toFixed(1)+' km/h':'--';
 const pace=a=>a.type==='Bicicleta'?fV(a.dist,a.dur):fP(a.dist,a.dur);
 const fD=ts=>new Date(ts).toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
 function parseGPX(txt,fn){const x=new DOMParser().parseFromString(txt,'text/xml');const pts=[];
-x.querySelectorAll('trkpt').forEach(n=>{const t=n.querySelector('time');pts.push([+n.getAttribute('lat'),+n.getAttribute('lon'),+(n.querySelector('ele')?.textContent||0),t?Date.parse(t.textContent):0])});
+x.querySelectorAll('trkpt').forEach(n=>{const t=n.querySelector('time'),el=n.querySelector('ele'),ev=el?parseFloat(el.textContent):NaN,tv=t?Date.parse(t.textContent):0;pts.push([+n.getAttribute('lat'),+n.getAttribute('lon'),isFinite(ev)?ev:null,tv||0])});
 if(pts.length<2)throw new Error('GPX sem pontos');
-const ty=(x.querySelector('trk > type')?.textContent||'').toLowerCase();
-const type=/bik|cycl|ride/.test(ty)?'Bicicleta':/walk|hik/.test(ty)?'Caminhada':'Corrida';
-return{id:Date.now()+Math.random(),name:x.querySelector('trk > name')?.textContent||fn.replace(/\.gpx$/i,''),type,date:pts[0][3]||Date.now(),pts,...calc(pts)}}
+const ty=(x.querySelector('trk > type')?.textContent||'').trim().toLowerCase(),sp=window.KRW&&KRW.SPORTS.find(z=>z.toLowerCase()===ty);
+const type=sp||(/bik|cycl|ride/.test(ty)?'Bicicleta':/walk|hik/.test(ty)?'Caminhada':'Corrida'),c=calc(pts);
+return{id:Date.now()+Math.random(),name:x.querySelector('trk > name')?.textContent||fn.replace(/\.gpx$/i,''),type,date:pts[0][3]||Date.now(),pts:thin(pts),...c}}
 $('#file').onchange=async e=>{for(const f of e.target.files){try{acts.push(parseGPX(await f.text(),f.name))}catch(x){alert(f.name+': '+x.message)}}
 save();e.target.value='';renderList()};
 const ls=(k,d)=>{try{return localStorage.getItem(k)??d}catch(e){return d}},ss=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const ICON={Corrida:'🏃',Bicicleta:'🚴',Caminhada:'🥾'};let flt='Todas',goal=+ls('kr_goal',20);
 const ini=()=>(ls('kr_name','Atleta')[0]||'A').toUpperCase();
-const hello=()=>document.querySelectorAll('.av,.avt').forEach(e=>e.textContent=ini());
+const hello=()=>document.querySelectorAll('.av.me,.avt').forEach(e=>e.textContent=ini());
 let tt;const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),2200)};
 const wkStart=()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()};
 function thumb(pts){const st=Math.max(1,Math.floor(pts.length/90)),q=pts.filter((_,i)=>i%st===0),k=Math.cos(q[0][0]*R),xs=q.map(p=>p[1]*k),ys=q.map(p=>-p[0]);
@@ -205,7 +213,7 @@ function renderCards(){const l=$('#list');acts.sort((a,b)=>b.date-a.date);const 
 const f=acts.filter(a=>a.name.toLowerCase().includes(q));
 l.innerHTML=f.length?'':'<p class="mu" style="padding:16px">Sem atividades. Toca em + para importar um GPX ou em Gravar.</p>';
 f.forEach((a,i)=>{const c=document.createElement('div');c.className='post';c.style.animationDelay=Math.min(i,6)*60+'ms';
-c.innerHTML=`<div class="ph"><span class="av">${ini()}</span><div class="pm"><b>${nm}</b><div class="mu">${fDT(a.date)}</div><div class="mu">${window.ic?ic(a.type):(ICON[a.type]||'🏃')} ${a.type}</div></div></div>
+c.innerHTML=`<div class="ph"><span class="av me">${ini()}</span><div class="pm"><b>${nm}</b><div class="mu">${fDT(a.date)}</div><div class="mu">${window.ic?ic(a.type):(ICON[a.type]||'🏃')} ${a.type}</div></div></div>
 <h2>${esc(a.name)}</h2>${window.KR_extra?KR_extra(a):''}
 <div class="ps"><div><span>Distância</span><b>${a.dist?(a.dist/1000).toFixed(2)+' km':'—'}</b></div><div><span>Subida</span><b>${Math.round(a.elev)} m</b></div><div><span>Tempo</span><b>${fTL(a.dur)}</b></div><div class="r"><span>Conquistas</span><b>🏅 ${ach(a)}</b></div></div>
 ${a.pts&&a.pts.length>1?`<div class="mapbox">${thumb(a.pts)}</div>`:''}
@@ -222,7 +230,7 @@ $('#sb').onclick=()=>{go('feed');const b=$('#sbar');b.classList.toggle('hide');i
 $('#chat').onclick=()=>toast('Mensagens chegam com o backend');
 $('#bell').onclick=()=>toast('Sem notificações novas');
 let amap,alay;
-function renderMaps(){if(!amap){amap=L.map('amap').setView([38.72,-9.14],11);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(amap);alay=L.layerGroup().addTo(amap)}
+function renderMaps(){if(!window.L){$('#amap').innerHTML='<p class="mu" style="padding:16px">Mapa indisponível sem ligação.</p>';return}if(!amap){amap=L.map('amap').setView([38.72,-9.14],11);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(amap);alay=L.layerGroup().addTo(amap)}
 alay.clearLayers();const all=[];acts.forEach(a=>{const ll=a.pts.map(p=>[p[0],p[1]]);for(const p of ll)all.push(p);L.polyline(ll,{color:'#fc4c02',weight:3,opacity:.55}).addTo(alay)});
 setTimeout(()=>{amap.invalidateSize();if(all.length)amap.fitBounds(all,{padding:[20,20]})},60)}
 function renderGroups(){const m0=new Date();m0.setDate(1);m0.setHours(0,0,0,0);
@@ -243,32 +251,46 @@ ${hasG?'<h4>Altimetria</h4><canvas id="el" width="700" height="110"></canvas><h4
 $('#back').onclick=()=>go('feed');
 $('#del').onclick=()=>{if(confirm('Apagar atividade?')){acts=acts.filter(x=>x!==a);save();renderList();go('feed')}};
 if(hasG)$('#exp').onclick=()=>exportGPX(a);
-if(hasG){if(map)map.remove();map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
-const ll=a.pts.map(p=>[p[0],p[1]]);const pl=L.polyline(ll,{color:'#fc4c02',weight:4}).addTo(map);map.fitBounds(pl.getBounds(),{padding:[20,20]});
+if(hasG){if(!window.L)$('#map')&&($('#map').outerHTML='<p class="mu">Mapa indisponível sem ligação.</p>');else{if(map)map.remove();map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(map);
+const ll=a.pts.map(p=>[p[0],p[1]]);const pl=L.polyline(ll,{color:'#fc4c02',weight:4}).addTo(map);map.fitBounds(pl.getBounds(),{padding:[20,20]})}
 chart(a);splits(a)}}
-function chart(a){const c=$('#el'),x=c.getContext('2d'),e=a.pts.map(p=>p[2]),mn=Math.min(...e),mx=Math.max(...e),r=(mx-mn)||1;
+function chart(a){const c=$('#el');if(!c)return;const v=a.pts.map(p=>p[2]).filter(e=>e!=null&&isFinite(e));
+if(v.length<2){c.outerHTML='<p class="mu">Sem dados de altitude.</p>';return}
+const x=c.getContext('2d'),mn=Math.min(...v),mx=Math.max(...v),r=(mx-mn)||1;
 x.fillStyle='#fc4c0255';x.strokeStyle='#fc4c02';x.beginPath();x.moveTo(0,110);
-e.forEach((v,i)=>x.lineTo(i/(e.length-1)*700,105-(v-mn)/r*95));x.lineTo(700,110);x.closePath();x.fill();x.stroke();
+v.forEach((e,i)=>x.lineTo(i/(v.length-1)*700,105-(e-mn)/r*95));x.lineTo(700,110);x.closePath();x.fill();x.stroke();
 x.fillStyle='#888';x.font='12px sans-serif';x.fillText(Math.round(mx)+' m',4,12);x.fillText(Math.round(mn)+' m',4,106)}
 function splits(a){let d=0,k=1,t0=a.pts[0][3],rows='<tr><th>Km</th><th>Tempo</th></tr>';
 for(let i=1;i<a.pts.length;i++){d+=hav(a.pts[i-1],a.pts[i]);if(d>=k*1000){rows+=`<tr><td>${k}</td><td>${fT((a.pts[i][3]-t0)/1000)}</td></tr>`;t0=a.pts[i][3];k++}}
 $('#sp').innerHTML=rows}
-function exportGPX(a){const g=`<?xml version="1.0"?><gpx version="1.1" creator="KeepRun" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${esc(a.name)}</name><trkseg>`+
-a.pts.map(p=>`<trkpt lat="${p[0]}" lon="${p[1]}"><ele>${p[2]}</ele><time>${new Date(p[3]).toISOString()}</time></trkpt>`).join('')+'</trkseg></trk></gpx>';
+function exportGPX(a){const T={Corrida:'running',Bicicleta:'cycling',Caminhada:'walking'}[a.type]||a.type;
+const g=`<?xml version="1.0"?><gpx version="1.1" creator="KeepRun" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${esc(a.name)}</name><type>${esc(T)}</type><trkseg>`+
+a.pts.map(p=>`<trkpt lat="${p[0]}" lon="${p[1]}">${p[2]!=null?`<ele>${p[2]}</ele>`:''}<time>${new Date(p[3]||Date.now()).toISOString()}</time></trkpt>`).join('')+'</trkseg></trk></gpx>';
 const u=URL.createObjectURL(new Blob([g],{type:'application/gpx+xml'})),l=document.createElement('a');l.href=u;l.download=a.name+'.gpx';l.click()}
 // Gravação
 let rmap,rline,wid,tick,rp=[],t0;
+let rwl=null,rrec=false,lastSave=0;
+const wlReq=async()=>{try{rwl=await navigator.wakeLock.request('screen')}catch(e){}};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&rrec)wlReq()});
+const saveRec=()=>{if(rrec&&rp.length>1)idbSet('rec',{t0,type:$('#rtype').value,pts:rp})};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveRec()});addEventListener('pagehide',saveRec);
 $('#rstart').onclick=()=>{if(!navigator.geolocation)return alert('Sem GPS');
-rp=[];t0=Date.now();$('#rstart').classList.add('hide');$('#rstop').classList.remove('hide');
-if(!rmap){rmap=L.map('rmap').setView([38.72,-9.14],14);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(rmap);rline=L.polyline([],{color:'#fc4c02',weight:4}).addTo(rmap)}
-rline.setLatLngs([]);
-wid=navigator.geolocation.watchPosition(p=>{if(p.coords.accuracy>40)return;rp.push([p.coords.latitude,p.coords.longitude,p.coords.altitude||0,p.timestamp]);
-rline.addLatLng([p.coords.latitude,p.coords.longitude]);rmap.setView([p.coords.latitude,p.coords.longitude]);upd()},e=>alert('GPS: '+e.message),{enableHighAccuracy:true});
+rp=[];t0=Date.now();rrec=true;lastSave=0;$('#rstart').classList.add('hide');$('#rstop').classList.remove('hide');
+try{if(window.L){if(!rmap){rmap=L.map('rmap').setView([38.72,-9.14],14);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(rmap);rline=L.polyline([],{color:'#fc4c02',weight:4}).addTo(rmap)}rline.setLatLngs([])}}catch(e){}
+wlReq();
+wid=navigator.geolocation.watchPosition(p=>{if(p.coords.accuracy>40)return;const q=[p.coords.latitude,p.coords.longitude,p.coords.altitude,p.timestamp],l=rp[rp.length-1];
+if(l&&hav(l,q)<3&&q[3]-l[3]<10000)return;rp.push(q);
+try{if(rline){rline.addLatLng([q[0],q[1]]);rmap.setView([q[0],q[1]])}}catch(e){}
+upd();if(Date.now()-lastSave>10000){lastSave=Date.now();idbSet('rec',{t0,type:$('#rtype').value,pts:rp})}},e=>alert('GPS: '+e.message),{enableHighAccuracy:true});
 tick=setInterval(upd,1000)};
 function upd(){const s=(Date.now()-t0)/1000,c=calc(rp);$('#rd').textContent=(c.dist/1000).toFixed(2);$('#rt').textContent=fT(s);$('#rp').textContent=fP(c.dist,s)}
-$('#rstop').onclick=()=>{navigator.geolocation.clearWatch(wid);clearInterval(tick);$('#rstart').classList.remove('hide');$('#rstop').classList.add('hide');
+$('#rstop').onclick=()=>{navigator.geolocation.clearWatch(wid);clearInterval(tick);rrec=false;try{rwl&&rwl.release()}catch(e){}idbSet('rec',null);
+$('#rstart').classList.remove('hide');$('#rstop').classList.add('hide');
 if(rp.length<2)return alert('Pontos GPS insuficientes');
-const ty=$('#rtype').value;acts.push({id:Date.now(),name:ty+' '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}),type:ty,date:rp[0][3],pts:rp,...calc(rp)});save();renderList();go('feed')};
+const ty=$('#rtype').value,c=calc(rp);acts.push({id:Date.now(),name:ty+' '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}),type:ty,date:rp[0][3],pts:thin(rp),...c});save();renderList();go('feed')};
+loaded.then(async()=>{if(rrec)return;const r=await idbGet('rec');if(!r||!r.pts||r.pts.length<2)return;const c=calc(r.pts);
+if(confirm(`Encontrámos uma gravação interrompida (${(c.dist/1000).toFixed(2)} km). Guardar como atividade?`)){acts.push({id:Date.now(),name:r.type+' (recuperada)',type:r.type,date:r.pts[0][3],pts:thin(r.pts),...c});save();renderList()}
+idbSet('rec',null)});
 // Estatísticas
 function renderStats(){const s=$('#stats'),tot=acts.reduce((o,a)=>({d:o.d+a.dist,t:o.t+a.dur,e:o.e+a.elev}),{d:0,t:0,e:0});
 const wk=[];const now=new Date();const mon=new Date(now);mon.setHours(0,0,0,0);mon.setDate(mon.getDate()-((mon.getDay()+6)%7));
