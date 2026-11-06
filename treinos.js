@@ -28,13 +28,13 @@ W('Pedalada de base','Bicicleta','Pedalada constante para ganhar resistência.',
 W('Sweet spot 3×10','Bicicleta','Blocos fortes mas sustentáveis para subir de nível.',['veloc','forca'],[wu(15),...rep(3,600,300,'forte','leve','Esforço duro, ritmo constante.','Pedala leve.'),cd(10)]),
 W('Sprints 6×30','Bicicleta','Potência e explosão.',['veloc'],[wu(15,'Faz 2 acelerações curtas no fim.'),...rep(6,30,210,'máximo','muito leve','Dá tudo!','Recupera bem.'),cd(10)]),
 W('Recuperação ativa','Bicicleta','Pedalada leve para soltar as pernas.',['recup'],[wu(5),st('Pedalada leve',25*60,'Cadência alta, sem esforço.','muito leve'),cd(5)])]};
-const walks=d=>{const m=Math.max(25,d);return[
+const walks=d=>{const m=Math.max(20,d);return[
 W('Caminhada rápida','Caminhada','Boa para base e recuperação.',['base','recup','diversao'],[wu(5),st('Passo rápido',(m-10)*60,'Braços ativos, passada firme.','moderado'),cd(5)]),
 W('Caminhada com intervalos','Caminhada','Alterna passo rápido e leve.',['veloc','diversao'],[wu(5),...rep(8,120,120,'rápido','leve','Passo rápido.','Passo leve.'),cd(5)])]};
-const strength=()=>[
-circ('Corpo inteiro','Circuito simples sem equipamento.',[['Agachamentos','Joelhos alinhados com os pés.'],['Flexões','Apoia os joelhos se precisares.'],['Afundos alternados','Passo largo e tronco direito.'],['Prancha','Corpo em linha reta.'],['Ponte de glúteos','Sobe a anca e aperta os glúteos.'],['Remada com mochila','Costas retas, puxa os cotovelos.']],3),
-circ('Pernas e core','Força para correr e pedalar melhor.',[['Agachamento búlgaro','Pé de trás num sofá ou cadeira.'],['Elevação de gémeos','Sobe devagar e desce com controlo.'],['Prancha lateral','Alterna o lado a meio.'],['Dead bug','Lombar colada ao chão.'],['Passada lateral','Mantém o peito aberto.'],['Superman','Eleva braços e pernas em simultâneo.']],3),
-circ('Parte superior','Peito, costas, ombros e braços.',[['Flexões','Corpo alinhado.'],['Mergulhos em cadeira','Cotovelos para trás.'],['Remada com mochila','Aproxima as omoplatas.'],['Flexões diamante','Mãos juntas.'],['Prancha com toque no ombro','Anca estável.'],['Pike push-up','Anca no ar, cabeça entre os braços.']],3)];
+const strength=n=>[
+circ('Corpo inteiro','Circuito simples sem equipamento.',[['Agachamentos','Joelhos alinhados com os pés.'],['Flexões','Apoia os joelhos se precisares.'],['Afundos alternados','Passo largo e tronco direito.'],['Prancha','Corpo em linha reta.'],['Ponte de glúteos','Sobe a anca e aperta os glúteos.'],['Remada com mochila','Costas retas, puxa os cotovelos.']],n),
+circ('Pernas e core','Força para correr e pedalar melhor.',[['Agachamento búlgaro','Pé de trás num sofá ou cadeira.'],['Elevação de gémeos','Sobe devagar e desce com controlo.'],['Prancha lateral','Alterna o lado a meio.'],['Dead bug','Lombar colada ao chão.'],['Passada lateral','Mantém o peito aberto.'],['Superman','Eleva braços e pernas em simultâneo.']],n),
+circ('Parte superior','Peito, costas, ombros e braços.',[['Flexões','Corpo alinhado.'],['Mergulhos em cadeira','Cotovelos para trás.'],['Remada com mochila','Aproxima as omoplatas.'],['Flexões diamante','Mãos juntas.'],['Prancha com toque no ombro','Anca estável.'],['Pike push-up','Anca no ar, cabeça entre os braços.']],n)];
 const hiit=()=>{const ts=[wu(5,'Mobilidade e saltinhos leves.'),...rep(8,20,10,'máximo','descanso','Dá tudo!','Respira.'),st('Pausa entre blocos',60,'Bebe água.','leve'),...rep(8,20,10,'máximo','descanso','Dá tudo!','Respira.'),cd(4)];
 const ex=['Burpees (10)','Agachamentos com salto (15)','Mountain climbers (40 s)'],em=[wu(5)];for(let i=1;i<=12;i++)em.push(st(`Minuto ${i}`,60,ex[(i-1)%3]+'. Descansa o que sobrar do minuto.','forte'));em.push(cd(4));
 return[W('Tabata 2 blocos','HIIT','Alta intensidade em pouco tempo.',['veloc','forca'],ts),W('HIIT 30/30','HIIT','30 segundos fortes, 30 de descanso.',['veloc','diversao'],[wu(5),...rep(10,30,30,'forte','descanso','Forte e com boa técnica.','Respira.'),cd(4)]),W('EMOM 12','HIIT','Um exercício por minuto, durante 12 minutos.',['forca','diversao'],em)]};
@@ -46,20 +46,22 @@ const mob=()=>[
 flow('Mobilidade de anca','Mobilidade','Mais amplitude para correr e agachar.',['recup','base'],['Círculos de anca','Agachamento profundo','Afundo com rotação','Borboleta','Ponte de glúteos','Figura 4 deitado'],60),
 flow('Mobilidade de ombros e coluna','Mobilidade','Solta a parte superior do corpo.',['recup','forca'],['Círculos de ombros','Gato e vaca','Rotação torácica','Abertura de peito','Torção deitado'],60),
 flow('Alongamentos pós-treino','Alongamentos','Para fazer logo a seguir a treinar.',['recup'],['Quadricípite','Isquiotibiais','Gémeos','Glúteos','Peito','Costas'],45)];
-const lib=d=>[...runs(d),...bikes(d),...walks(d),...strength(),...hiit(),...yoga(),...mob()];
-const gen=(s,d)=>W(`Sessão de ${s}`,s,'Estrutura simples para a tua prática.',['diversao','base'],[wu(10,'Prepara articulações e ritmo cardíaco.'),st('Parte principal',Math.max(20,d)*60,'Pratica ao teu ritmo e cuida da técnica.','moderado'),cd(5,'Alongamentos suaves.')]);
-const forSport=(s,d)=>{const b=AL[s]||s;const l=lib(d).filter(w=>w.sport===b).map(w=>({...w,sport:s,id:s+'|'+w.name}));return l.length?l:[gen(s,d),{...gen(s,25),name:`Sessão curta de ${s}`,id:s+'|curta'}]};
+const NOV=new Set(['Caminhar e correr','Caminhada rápida','Corpo inteiro','Saudação ao sol','Yoga para pernas de corredor','Yoga para relaxar','Mobilidade de anca','Mobilidade de ombros e coluna','Alongamentos pós-treino']);
+const nov=rn=>{const [w,r]=rn<2?[60,120]:rn<5?[120,90]:[180,60];return W('Caminhar e correr','Corrida','Alterna corrida leve e caminhada: ideal para começar ou voltar aos treinos.',['base','recup','diversao'],[wu(5,'Caminha a passo rápido.'),...rep(6,w,r,'trote leve','caminhada','Corre devagar: tens de conseguir falar.','Caminha e recupera o fôlego.'),cd(3,'Caminha e respira fundo.')])};
+const lib=(d,nv,rn)=>[nov(rn||0),...runs(d),...bikes(d),...walks(d),...strength(nv?2:3),...hiit(),...yoga(),...mob()];
+const gen=(s,d)=>W(`Sessão de ${s}`,s,'Estrutura simples para a tua prática.',['diversao','base'],[wu(d<=25?5:10,'Prepara articulações e ritmo cardíaco.'),st('Parte principal',Math.max(15,d)*60,'Pratica ao teu ritmo e cuida da técnica.','moderado'),cd(5,'Alongamentos suaves.')]);
+const forSport=(s,d,nv,rn)=>{const b=AL[s]||s;const l=lib(d,nv,rn).filter(w=>w.sport===b&&(!nv||NOV.has(w.name))).map(w=>({...w,sport:s,id:s+'|'+w.name}));return l.length?l:[gen(s,d),{...gen(s,15),name:`Sessão curta de ${s}`,id:s+'|curta'}]};
 function ctx(){const now=Date.now(),a28=acts.filter(a=>a.date>=now-28*864e5),a7=a28.filter(a=>a.date>=now-7*864e5);
 const l7=a7.reduce((q,a)=>q+a.dur,0),l28=a28.reduce((q,a)=>q+a.dur,0)/4,cnt={};a28.forEach(a=>cnt[a.type]=(cnt[a.type]||0)+1);
 const fav=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0]||'Corrida',last=acts.length?Math.max(...acts.map(a=>a.date)):0,rc=acts.slice(0,10);
 const av=rc.length?rc.reduce((q,a)=>q+a.dur,0)/rc.length/60:40;
-return{fat:a28.length>=4&&l7>l28*1.35&&l7>3600,fav,gap:last?Math.floor((now-last)/864e5):99,dur:Math.min(70,Math.max(25,Math.round(av/5)*5))}}
+const nv=a28.length<3;return{nov:nv,rn:a28.filter(a=>a.type==='Corrida').length,fat:a28.length>=4&&l7>l28*1.35&&l7>3600,fav,gap:last?Math.floor((now-last)/864e5):99,dur:nv?20:Math.min(70,Math.max(25,Math.round(av/5)*5))}}
 const intent=()=>INT[ls('kr_intent','base')]?ls('kr_intent','base'):'base';
-function picks(it){const c=ctx(),L=lib(c.dur),r=rngf(wkId(Date.now())%100000+it.charCodeAt(0)*13);
-let pool=shuf(L.filter(w=>w.intents.includes(it)),r).sort((a,b)=>(a.sport===c.fav?0:1)-(b.sport===c.fav?0:1));
+function picks(it){const c=ctx(),L=lib(c.dur,c.nov,c.rn),r=rngf(wkId(Date.now())%100000+it.charCodeAt(0)*13),B=c.nov?L.filter(w=>NOV.has(w.name)):L;
+let P=B.filter(w=>w.intents.includes(it));if(P.length<3)P=B;let pool=shuf(P,r).sort((a,b)=>(a.sport===c.fav?0:1)-(b.sport===c.fav?0:1));
 const cnt={},out=[];if(c.fat&&it!=='recup'){const rc=L.filter(w=>w.intents.includes('recup')&&w.sport===c.fav)[0]||L.find(w=>w.intents.includes('recup'));if(rc)out.push(rc)}
 pool.forEach(w=>{cnt[w.sport]=(cnt[w.sport]||0);if(out.length<6&&cnt[w.sport]<3&&!out.includes(w)){cnt[w.sport]++;out.push(w)}});return out}
-const msg=()=>{const c=ctx();return c.fat?'Fizeste bastante esta semana: sugerimos começar por um treino de recuperação.':(acts.length&&c.gap>=5?`Há ${c.gap} dias que não treinas. Começa com algo leve.`:'Sugestões novas todas as segundas-feiras, a pensar na tua intenção e no teu histórico.')};
+const msg=()=>{const c=ctx();return c.nov?'Para começar, sugerimos treinos curtos e suaves. Aumentamos aos poucos à medida que treinas.':c.fat?'Fizeste bastante esta semana: sugerimos começar por um treino de recuperação.':(acts.length&&c.gap>=5?`Há ${c.gap} dias que não treinas. Começa com algo leve.`:'Sugestões novas todas as segundas-feiras, a pensar na tua intenção e no teu histórico.')};
 // ---------- áudio ----------
 const say=t=>{if(ls('kr_audio','1')!=='1'||!window.speechSynthesis)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-PT';speechSynthesis.speak(u)}catch(e){}};
 let ac;const beep=(f,ms)=>{try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.value=.15;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+ms/1000)}catch(e){}};
@@ -101,7 +103,7 @@ function renderRoutes(){const el=$('#wr');if(!el)return;const {ty,out}=routes();
 el.innerHTML=`<p class="mu">Percursos de ${ty.toLowerCase()} feitos por ti e pelos teus amigos. <button class="btn" id="wnear">Perto de mim</button></p>`+(out.length?out.map((o,i)=>`<div class="card wr" data-i="${i}">${thumb(o.pts)}<div><b>${esc(o.t)}</b><div class="mu">${(o.d/1000).toFixed(1)} km · ${esc(o.src)}${o.near!=null?' · a '+(o.near/1000).toFixed(1)+' km de ti':''}</div></div></div>`).join(''):'<p class="mu">Ainda não há percursos. Grava ou importa atividades, e os percursos dos amigos também aparecem aqui.</p>');
 el.querySelectorAll('.wr').forEach(e=>e.onclick=()=>{const o=out[+e.dataset.i];if(o.a)show(o.a)});
 $('#wnear').onclick=()=>{if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{pos=[p.coords.latitude,p.coords.longitude];renderRoutes()},()=>toast('Não consegui obter a localização'))}}
-window.renderWO=function(){const el=$('#wo');if(!el)return;const c=ctx(),it=intent(),list=sel==='Sugestões'?picks(it):forSport(sel,c.dur);let dn=[];try{dn=JSON.parse(ls('kr_done','[]'))}catch(e){}
+window.renderWO=function(){const el=$('#wo');if(!el)return;const c=ctx(),it=intent(),list=sel==='Sugestões'?picks(it):forSport(sel,c.dur,c.nov,c.rn);let dn=[];try{dn=JSON.parse(ls('kr_done','[]'))}catch(e){}
 el.innerHTML=`<p><button class="btn" id="wb">← Voltar</button></p><div class="card"><b>Treinos para ti</b><p class="mu">${msg()}</p><div class="mu">A tua intenção:</div><div class="chips" style="margin:8px 0 0">${Object.keys(INT).map(k=>`<button class="chip ${k===it?'on':''}" data-in="${k}">${INT[k]}</button>`).join('')}</div></div>
 <div class="chips">${['Sugestões',...SPORTS].map(s=>`<button class="chip ${s===sel?'on':''}" data-sp="${esc(s)}">${esc(s)}</button>`).join('')}</div>
 <div id="wl">${list.map(wcard).join('')}</div><h3>Onde treinar</h3><div id="wr"></div>
