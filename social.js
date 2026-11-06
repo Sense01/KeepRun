@@ -1,14 +1,14 @@
 // KeepRun: login Google + amigos (Firebase). Usa globais do index.html.
 const V='10.14.1',G='https://www.gstatic.com/firebasejs/'+V+'/';
 let ready=false,db,auth,user=null,code='',friends=[],inc=[],FA=[],unsubs=[];
-let GoogleAuthProvider,signInWithPopup,signOut,doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit;
+let GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut,doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit;
 const key=a=>String(a.id).replace(/[./]/g,'_');
 async function init(){
   try{
     const {firebaseConfig:c}=await import('./firebase-config.js');
     if(!c.apiKey||c.apiKey.includes('COLE'))throw 0;
     const [A,Au,F]=await Promise.all([import(G+'firebase-app.js'),import(G+'firebase-auth.js'),import(G+'firebase-firestore.js')]);
-    ({GoogleAuthProvider,signInWithPopup,signOut}=Au);
+    ({GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut}=Au);
     ({doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit}=F);
     const app=A.initializeApp(c);auth=Au.getAuth(app);db=F.getFirestore(app);ready=true;
     Au.onAuthStateChanged(auth,onUser);
@@ -55,7 +55,9 @@ async function doSync(){
     ss(sk,JSON.stringify([...ids.keys()]))}catch(e){toast('Erro ao sincronizar')}
 }
 // ---- ações ----
-async function login(){try{await signInWithPopup(auth,new GoogleAuthProvider())}catch(e){if(e.code!=='auth/popup-closed-by-user')toast('Falha no login: '+(e.code||'erro'))}}
+async function login(){const p=new GoogleAuthProvider();try{await signInWithPopup(auth,p)}catch(e){
+  if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'){try{await signInWithRedirect(auth,p)}catch(x){toast('Falha no login: '+(x.code||'erro'))}}
+  else if(e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')toast('Falha no login: '+(e.code||'erro'))}}
 async function addFriend(c){c=c.trim().toUpperCase();if(c.length<4)return toast('Código inválido');if(c===code)return toast('Esse é o teu código');
   try{const r=await getDocs(query(collection(db,'users'),where('code','==',c)));if(r.empty)return toast('Código não encontrado');
     const t=r.docs[0];if(friends.some(f=>f.id===t.id))return toast('Já são amigos');
