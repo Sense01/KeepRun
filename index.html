@@ -205,13 +205,13 @@ function renderCards(){const l=$('#list');acts.sort((a,b)=>b.date-a.date);const 
 const f=acts.filter(a=>a.name.toLowerCase().includes(q));
 l.innerHTML=f.length?'':'<p class="mu" style="padding:16px">Sem atividades. Toca em + para importar um GPX ou em Gravar.</p>';
 f.forEach((a,i)=>{const c=document.createElement('div');c.className='post';c.style.animationDelay=Math.min(i,6)*60+'ms';
-c.innerHTML=`<div class="ph"><span class="av">${ini()}</span><div class="pm"><b>${nm}</b><div class="mu">${fDT(a.date)}</div><div class="mu">${ICON[a.type]||'🏃'} ${a.type}</div></div></div>
-<h2>${esc(a.name)}</h2>
-<div class="ps"><div><span>Distância</span><b>${(a.dist/1000).toFixed(2)} km</b></div><div><span>Subida</span><b>${Math.round(a.elev)} m</b></div><div><span>Tempo</span><b>${fTL(a.dur)}</b></div><div class="r"><span>Conquistas</span><b>🏅 ${ach(a)}</b></div></div>
-<div class="mapbox">${thumb(a.pts)}</div>
+c.innerHTML=`<div class="ph"><span class="av">${ini()}</span><div class="pm"><b>${nm}</b><div class="mu">${fDT(a.date)}</div><div class="mu">${window.ic?ic(a.type):(ICON[a.type]||'🏃')} ${a.type}</div></div></div>
+<h2>${esc(a.name)}</h2>${window.KR_extra?KR_extra(a):''}
+<div class="ps"><div><span>Distância</span><b>${a.dist?(a.dist/1000).toFixed(2)+' km':'—'}</b></div><div><span>Subida</span><b>${Math.round(a.elev)} m</b></div><div><span>Tempo</span><b>${fTL(a.dur)}</b></div><div class="r"><span>Conquistas</span><b>🏅 ${ach(a)}</b></div></div>
+${a.pts&&a.pts.length>1?`<div class="mapbox">${thumb(a.pts)}</div>`:''}
 <div class="kd">${a.k?'Deste gosto a esta atividade':'Sê o primeiro a dar gosto!'}</div><div class="cm">${(a.c||[]).map(x=>`<p><b>${nm}</b> ${esc(x)}</p>`).join('')}</div>
 <div class="ac"><button class="lk ${a.k?'on':''}">${IC.thumb}</button><button class="cmt">${IC.chat}</button><button class="shr">${IC.share}</button></div>`;
-c.querySelector('h2').onclick=c.querySelector('.mapbox').onclick=()=>show(a);
+c.querySelector('h2').onclick=()=>show(a);const mb=c.querySelector('.mapbox');if(mb)mb.onclick=()=>show(a);
 c.querySelector('.lk').onclick=()=>{a.k=!a.k;save();renderCards()};
 c.querySelector('.cmt').onclick=()=>{const t=prompt('Comentário');if(t){(a.c=a.c||[]).push(t.slice(0,300));save();renderCards()}};
 c.querySelector('.shr').onclick=()=>{const t=`${a.name} — ${(a.dist/1000).toFixed(2)} km em ${fTL(a.dur)} #KeepRun`;if(navigator.share)navigator.share({title:'KeepRun',text:t}).catch(()=>{});else{try{navigator.clipboard.writeText(t)}catch(e){}toast('Texto copiado')}};
@@ -235,17 +235,17 @@ $('#groups').innerHTML=`<div id="friends"></div><h3>Desafios</h3>${ch('Desafio d
 <div class="card mu">Clubes e desafios partilhados chegam em breve.</div>`;window.KR_friends&&window.KR_friends()}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let map;
-function show(a){go('detail');const d=$('#detail');
-d.innerHTML=`<p><button class="btn" id="back">← Voltar</button></p><div class="card"><b>${esc(a.name)}</b><div class="mu">${a.type} · ${fD(a.date)}</div><div id="map"></div>
-<div class="row"><div><div class="big">${(a.dist/1000).toFixed(2)} km</div></div><div><div class="big">${fT(a.dur)}</div></div><div><div class="big">${pace(a)}</div></div><div><div class="big">${Math.round(a.elev)} m</div></div></div>
-<h4>Altimetria</h4><canvas id="el" width="700" height="110"></canvas><h4>Parciais por km</h4><table id="sp"></table>
-<p><button class="btn" id="exp">Exportar GPX</button> <button class="btn" id="del">Apagar</button></p></div>`;
+function show(a){go('detail');const d=$('#detail'),hasG=a.pts&&a.pts.length>1;
+d.innerHTML=`<p><button class="btn" id="back">← Voltar</button></p><div class="card"><b>${esc(a.name)}</b><div class="mu">${a.type} · ${fD(a.date)}</div>${window.KR_extra?KR_extra(a):''}${hasG?'<div id="map"></div>':''}
+<div class="row"><div><div class="big">${a.dist?(a.dist/1000).toFixed(2)+' km':'—'}</div></div><div><div class="big">${fT(a.dur)}</div></div><div><div class="big">${pace(a)}</div></div><div><div class="big">${Math.round(a.elev)} m</div></div></div>
+${hasG?'<h4>Altimetria</h4><canvas id="el" width="700" height="110"></canvas><h4>Parciais por km</h4><table id="sp"></table>':''}
+<p>${hasG?'<button class="btn" id="exp">Exportar GPX</button>':''} <button class="btn" id="del">Apagar</button></p></div>`;
 $('#back').onclick=()=>go('feed');
 $('#del').onclick=()=>{if(confirm('Apagar atividade?')){acts=acts.filter(x=>x!==a);save();renderList();go('feed')}};
-$('#exp').onclick=()=>exportGPX(a);
-if(map)map.remove();map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+if(hasG)$('#exp').onclick=()=>exportGPX(a);
+if(hasG){if(map)map.remove();map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
 const ll=a.pts.map(p=>[p[0],p[1]]);const pl=L.polyline(ll,{color:'#fc4c02',weight:4}).addTo(map);map.fitBounds(pl.getBounds(),{padding:[20,20]});
-chart(a);splits(a)}
+chart(a);splits(a)}}
 function chart(a){const c=$('#el'),x=c.getContext('2d'),e=a.pts.map(p=>p[2]),mn=Math.min(...e),mx=Math.max(...e),r=(mx-mn)||1;
 x.fillStyle='#fc4c0255';x.strokeStyle='#fc4c02';x.beginPath();x.moveTo(0,110);
 e.forEach((v,i)=>x.lineTo(i/(e.length-1)*700,105-(v-mn)/r*95));x.lineTo(700,110);x.closePath();x.fill();x.stroke();

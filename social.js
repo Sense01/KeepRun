@@ -45,14 +45,14 @@ async function loadFA(){
 function route(p){let d=0;const cum=[0];for(let i=1;i<p.length;i++){d+=hav(p[i-1],p[i]);cum.push(d)}
   const T=cum[cum.length-1],q=p.filter((_,i)=>cum[i]>200&&cum[i]<T-200),st=Math.max(1,Math.floor(q.length/80)),r=[];
   q.forEach((x,i)=>{if(i%st===0)r.push(+x[0].toFixed(5),+x[1].toFixed(5))});return r}
-const pack=a=>({title:a.name,type:a.type,date:a.date,dist:Math.round(a.dist),dur:Math.round(a.dur),elev:Math.round(a.elev),r:route(a.pts)});
+const pack=a=>({title:a.name,type:a.type,date:a.date,dist:Math.round(a.dist),dur:Math.round(a.dur),elev:Math.round(a.elev),r:a.showMap===false?[]:route(a.pts||[]),eff:a.eff||0,desc:(a.desc||'').slice(0,300)});
 let syncT;window.KR_sync=()=>{clearTimeout(syncT);syncT=setTimeout(doSync,800)};
 async function doSync(){
   if(!user||!ready)return;const sk='kr_synced_'+user.uid;let old=[];try{old=JSON.parse(ls(sk,'[]'))}catch(e){}
-  const want=ls('kr_share','1')==='1'?acts:[],ids=new Map(want.map(a=>[key(a),a]));
-  try{for(const [k,a] of ids)if(!old.includes(k))await setDoc(doc(db,'activities',user.uid,'items',k),pack(a));
-    for(const k of old)if(!ids.has(k))await deleteDoc(doc(db,'activities',user.uid,'items',k));
-    ss(sk,JSON.stringify([...ids.keys()]))}catch(e){toast('Erro ao sincronizar')}
+  const list=(ls('kr_share','1')==='1'?acts:[]).filter(a=>a.share!==false),sig=a=>key(a)+(a.showMap===false?'|0':'|1'),wS=new Set(list.map(sig)),wK=new Set(list.map(key));
+  try{for(const a of list)if(!old.includes(sig(a)))await setDoc(doc(db,'activities',user.uid,'items',key(a)),pack(a));
+    for(const e of old){const k=e.split('|')[0];if(!wK.has(k))await deleteDoc(doc(db,'activities',user.uid,'items',k))}
+    ss(sk,JSON.stringify([...wS]))}catch(e){toast('Erro ao sincronizar')}
 }
 // ---- ações ----
 async function login(){const p=new GoogleAuthProvider();try{await signInWithPopup(auth,p)}catch(e){
@@ -88,8 +88,8 @@ function renderFriends(){const el=$('#friends');if(!el)return;
   el.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>decline(b.dataset.d));
   el.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>removeF(b.dataset.r))}
 function fpost(a){const pts=[];for(let i=0;i+1<(a.r||[]).length;i+=2)pts.push([a.r[i],a.r[i+1]]);
-  return `<div class="post"><div class="ph"><span class="av">${esc((a.fname||'?')[0].toUpperCase())}</span><div class="pm"><b>${esc(a.fname||'Amigo')}</b><div class="mu">${fDT(a.date)}</div><div class="mu">${ICON[a.type]||'🏃'} ${esc(a.type||'')}</div></div></div>
-  <h2 style="cursor:default">${esc(a.title||'')}</h2><div class="ps"><div><span>Distância</span><b>${(a.dist/1000).toFixed(2)} km</b></div><div><span>Subida</span><b>${a.elev} m</b></div><div><span>Tempo</span><b>${fTL(a.dur)}</b></div></div>
+  return `<div class="post"><div class="ph"><span class="av">${esc((a.fname||'?')[0].toUpperCase())}</span><div class="pm"><b>${esc(a.fname||'Amigo')}</b><div class="mu">${fDT(a.date)}</div><div class="mu">${window.ic?ic(a.type):'🏃'} ${esc(a.type||'')}</div></div></div>
+  <h2 style="cursor:default">${esc(a.title||'')}</h2>${a.eff?`<div class="mu" style="margin:-6px 0 10px">💪 Esforço ${a.eff}/10</div>`:''}${a.desc?`<p style="margin:0 0 10px">${esc(a.desc)}</p>`:''}<div class="ps"><div><span>Distância</span><b>${a.dist?(a.dist/1000).toFixed(2)+' km':'—'}</b></div><div><span>Subida</span><b>${a.elev} m</b></div><div><span>Tempo</span><b>${fTL(a.dur)}</b></div></div>
   ${pts.length>1?`<div class="mapbox" style="cursor:default">${thumb(pts)}</div>`:''}<div style="height:12px"></div></div>`}
 function renderFF(){const el=$('#ff');if(el)el.innerHTML=FA.length?'<h3 style="margin:8px 4px">Amigos</h3>'+FA.map(fpost).join(''):''}
 function renderAll(){renderAcct();renderFriends();renderFF()}
