@@ -3,6 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function me(uid) { return request.auth != null && request.auth.uid == uid; }
+    function canSee(owner) { return signedIn() && (request.auth.uid == owner || exists(/databases/$(database)/documents/users/$(owner)/friends/$(request.auth.uid))); }
 
     // Perfil: leitura individual (sem listagem).
     match /users/{uid} {
@@ -68,6 +69,28 @@ service cloud.firestore {
         && request.resource.data.desc is string && request.resource.data.desc.size() <= 300
         && request.resource.data.r is list && request.resource.data.r.size() <= 170;
       allow delete: if me(uid);
+
+      // Gostos: um por amigo (o id do documento e o id de quem deu gosto).
+      match /kudos/{kid} {
+        allow read: if canSee(uid);
+        allow create, update: if canSee(uid) && kid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['name', 't'])
+          && request.resource.data.name is string && request.resource.data.name.size() <= 60
+          && request.resource.data.t is number;
+        allow delete: if signedIn() && (kid == request.auth.uid || request.auth.uid == uid);
+      }
+
+      // Comentarios: o autor escreve; o autor ou o dono da atividade apagam.
+      match /comments/{cid} {
+        allow read: if canSee(uid);
+        allow create: if canSee(uid)
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'text', 't'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name is string && request.resource.data.name.size() <= 60
+          && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 200
+          && request.resource.data.t is number;
+        allow delete: if signedIn() && (resource.data.uid == request.auth.uid || request.auth.uid == uid);
+      }
     }
   }
 }

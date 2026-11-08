@@ -7,7 +7,7 @@
 5. No separador **Regras** do Firestore, cola o conteúdo de `firestore.rules` e clica em **Publicar**. Se já tinhas regras antigas, substitui-as: as novas usam uma coleção `codes` para os códigos de amigo.
 6. **Definições do projeto > As tuas apps > Web (</>)**: regista a app e copia o `firebaseConfig`.
 7. Cola esses valores em `firebase-config.js`.
-8. Envia para o repositório, todos na raiz: `index.html`, `treinos.js`, `social.js`, `sw.js`, `firebase-config.js`, `manifest.webmanifest`, `icon-180.png`, `icon-192.png`, `icon-512.png` (e, para referência, `firestore.rules`, `SETUP.md` e `README.md`).
+8. Envia para o repositório, todos na raiz: `index.html`, `anim.js`, `treinos.js`, `social.js`, `sw.js`, `firebase-config.js`, `manifest.webmanifest`, `icon-180.png`, `icon-192.png`, `icon-512.png` (e, para referência, `firestore.rules`, `SETUP.md`, `VENDOR.md` e `README.md`).
 
 O plano gratuito (Spark) chega para uso pessoal e para um grupo de amigos.
 
@@ -21,4 +21,5 @@ O plano gratuito (Spark) chega para uso pessoal e para um grupo de amigos.
 
 ## Notas
 - O login Google pode falhar na app instalada no iPhone (limitação do iOS com o domínio do Firebase). O login por email/palavra-passe evita o problema.
-- Gostos e comentários são só locais neste momento.
+- Gostos e comentários entre amigos ficam na nuvem (só os amigos aceites os veem); os teus gostos e comentários também são apagados com "Apagar os meus dados na nuvem".
+- A política de privacidade (Eu > Política de privacidade) é um texto-modelo: preenche o teu nome e contacto em `treinos.js` (procura "[email de contacto]") antes de ter utilizadores.

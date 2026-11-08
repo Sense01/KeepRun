@@ -35,9 +35,13 @@ const strength=n=>[
 circ('Corpo inteiro','Circuito simples sem equipamento.',[['Agachamentos','Joelhos alinhados com os pés.'],['Flexões','Apoia os joelhos se precisares.'],['Afundos alternados','Passo largo e tronco direito.'],['Prancha','Corpo em linha reta.'],['Ponte de glúteos','Sobe a anca e aperta os glúteos.'],['Remada com mochila','Costas retas, puxa os cotovelos.']],n),
 circ('Pernas e core','Força para correr e pedalar melhor.',[['Agachamento búlgaro','Pé de trás num sofá ou cadeira.'],['Elevação de gémeos','Sobe devagar e desce com controlo.'],['Prancha lateral','Alterna o lado a meio.'],['Dead bug','Lombar colada ao chão.'],['Passada lateral','Mantém o peito aberto.'],['Superman','Eleva braços e pernas em simultâneo.']],n),
 circ('Parte superior','Peito, costas, ombros e braços.',[['Flexões','Corpo alinhado.'],['Mergulhos em cadeira','Cotovelos para trás.'],['Remada com mochila','Aproxima as omoplatas.'],['Flexões diamante','Mãos juntas.'],['Prancha com toque no ombro','Anca estável.'],['Pike push-up','Anca no ar, cabeça entre os braços.']],n)];
-const hiit=()=>{const ts=[wu(5,'Mobilidade e saltinhos leves.'),...rep(8,20,10,'máximo','descanso','Dá tudo!','Respira.'),st('Pausa entre blocos',60,'Bebe água.','leve'),...rep(8,20,10,'máximo','descanso','Dá tudo!','Respira.'),cd(4)];
-const ex=['Burpees (10)','Agachamentos com salto (15)','Mountain climbers (40 s)'],em=[wu(5)];for(let i=1;i<=12;i++)em.push(st(`Minuto ${i}`,60,ex[(i-1)%3]+'. Descansa o que sobrar do minuto.','forte'));em.push(cd(4));
-return[W('Tabata 2 blocos','HIIT','Alta intensidade em pouco tempo.',['veloc','forca'],ts),W('HIIT 30/30','HIIT','30 segundos fortes, 30 de descanso.',['veloc','diversao'],[wu(5),...rep(10,30,30,'forte','descanso','Forte e com boa técnica.','Respira.'),cd(4)]),W('EMOM 12','HIIT','Um exercício por minuto, durante 12 minutos.',['forca','diversao'],em)]};
+const hiit=()=>{const tab=(a,b)=>{const o=[];for(let i=1;i<=8;i++){o.push(st(i%2?a:b,20,'Dá tudo!','máximo'));if(i<8)o.push(st('Descanso',10,'Respira.','descanso'))}return o};
+const ts=[wu(5,'Mobilidade e saltinhos leves.'),...tab('Agachamentos com salto','Mountain climbers'),st('Pausa entre blocos',60,'Bebe água.','leve'),...tab('Burpees','Joelhos altos'),cd(4)];
+const ex=[['Burpees','10 repetições.'],['Agachamentos com salto','15 repetições.'],['Mountain climbers','40 segundos.']],em=[wu(5)];
+for(let i=1;i<=12;i++)em.push(st(ex[(i-1)%3][0],60,`Minuto ${i}: ${ex[(i-1)%3][1]} Descansa o que sobrar do minuto.`,'forte'));em.push(cd(4));
+const nm=['Burpees','Mountain climbers','Agachamentos com salto','Joelhos altos','Polichinelos'],t30=[wu(5)];
+for(let i=1;i<=10;i++){t30.push(st(nm[(i-1)%5],30,'Forte e com boa técnica.','forte'));if(i<10)t30.push(st('Descanso',30,'Respira.','descanso'))}t30.push(cd(4));
+return[W('Tabata 2 blocos','HIIT','Alta intensidade em pouco tempo.',['veloc','forca'],ts),W('HIIT 30/30','HIIT','30 segundos fortes, 30 de descanso.',['veloc','diversao'],t30),W('EMOM 12','HIIT','Um exercício por minuto, durante 12 minutos.',['forca','diversao'],em)]};
 const yoga=()=>[
 flow('Saudação ao sol','Yoga','Desperta o corpo todo.',['diversao','recup'],['Montanha','Flexão à frente','Prancha','Cobra','Cão a olhar para baixo','Flexão à frente','Montanha','Flexão à frente','Prancha','Cobra','Cão a olhar para baixo'],45),
 flow('Yoga para pernas de corredor','Yoga','Alivia ancas, coxas e gémeos.',['recup','base'],['Afundo baixo','Pombo','Borboleta','Cão a olhar para baixo','Figura 4 deitado','Pernas na parede'],90),
@@ -62,6 +66,13 @@ let P=B.filter(w=>w.intents.includes(it));if(P.length<3)P=B;let pool=shuf(P,r).s
 const cnt={},out=[];if(c.fat&&it!=='recup'){const rc=L.filter(w=>w.intents.includes('recup')&&w.sport===c.fav)[0]||L.find(w=>w.intents.includes('recup'));if(rc)out.push(rc)}
 pool.forEach(w=>{cnt[w.sport]=(cnt[w.sport]||0);if(out.length<6&&cnt[w.sport]<3&&!out.includes(w)){cnt[w.sport]++;out.push(w)}});return out}
 const msg=()=>{const c=ctx();return c.ret?'Bem-vindo de volta! Começa com treinos um pouco mais curtos e vai subindo.':c.nov?'Para começar, sugerimos treinos curtos e suaves. Aumentamos aos poucos à medida que treinas.':c.fat?'Fizeste bastante esta semana: sugerimos começar por um treino de recuperação.':(acts.length&&c.gap>=5?`Há ${c.gap} dias que não treinas. Começa com algo leve.`:'Sugestões novas todas as segundas-feiras, a pensar na tua intenção e no teu histórico.')};
+// ---------- animações dos exercícios ----------
+const NM={'Agachamentos':'squat','Flexões':'pushup','Flexões diamante':'pushup','Afundos alternados':'lunge','Prancha':'plank','Ponte de glúteos':'bridge','Remada com mochila':'row','Agachamento búlgaro':'bulgarian','Elevação de gémeos':'calf','Prancha lateral':'sideplank','Dead bug':'deadbug','Passada lateral':'latlunge','Superman':'superman','Mergulhos em cadeira':'dips','Prancha com toque no ombro':'plankTap','Pike push-up':'pike','Burpees':'burpee','Agachamentos com salto':'squatjump','Mountain climbers':'climbers','Polichinelos':'jacks','Joelhos altos':'highknees','Respiração inicial':'seated','Montanha':'mountain','Flexão à frente':'fold','Cobra':'cobra','Cão a olhar para baixo':'downdog','Afundo baixo':'lowlunge','Pombo':'pigeon','Borboleta':'butterfly','Figura 4 deitado':'fig4','Pernas na parede':'legsup','Criança':'child','Gato e vaca':'catcow','Torção deitado':'twist','Joelhos ao peito':'kneehug','Relaxamento final':'savasana','Círculos de anca':'hipcircle','Agachamento profundo':'deepsquat','Afundo com rotação':'lungetwist','Círculos de ombros':'shouldercircle','Rotação torácica':'thoracic','Abertura de peito':'chestopen','Quadricípite':'quadstretch','Isquiotibiais':'hamstring','Gémeos':'calfstretch','Glúteos':'fig4','Peito':'chestopen','Costas':'child'};
+function animFor(w,x){const n=x.n.replace(/\s*\(.*\)$/,'');if(NM[n])return NM[n];if(/^(Descanso|Pausa)/.test(n))return'rest';
+  const sp=AL[w.sport]||w.sport,z=x.z||'';if(sp==='Bicicleta')return'bike';if(sp==='Caminhada')return'walk';
+  if(sp==='Corrida'){if(z==='caminhada'||/^Retorno/.test(n)||(/^Aquecimento/.test(n)&&w.name==='Caminhar e correr'))return'walk';return/forte|máximo|rápido/.test(z)?'run':'jog'}
+  if(/^Aquecimento/.test(n))return sp==='Força'?'hipcircle':['Yoga','Mobilidade','Alongamentos'].includes(sp)?'seated':'jacks';
+  if(/^Retorno/.test(n))return'fold';return null}
 // ---------- áudio ----------
 let ac;const AC=()=>{try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){}return ac};
 const tone=(f,t0,d)=>{const a=AC();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime+t0;o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(.35,t+.02);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+.05)};
@@ -75,7 +86,8 @@ const txt=w=>`${w.name} (${w.dur} min) — KeepRun\n`+w.steps.map((x,i)=>`${i+1}
 function openW(w){const g=G();g.classList.add('on');
 g.innerHTML=`<div class="gh"><b>${esc(w.name)}</b><button class="btn" id="gx">Fechar</button></div><p class="mu">${ic(w.sport)} ${esc(w.sport)} · ${w.dur} min · ${w.steps.length} passos<br>${esc(w.why)}</p>
 ${OUT.has(w.sport)?'<label class="ck"><input type="checkbox" id="gpsb" checked> Gravar percurso com GPS</label>':''}<div class="gb"><button class="btn pri" id="gg">Iniciar treino</button> <button class="btn" id="gsh">Partilhar</button></div>
-${w.steps.map((x,i)=>`<div class="gst"><span>${i+1}</span><div><b>${esc(x.n)}</b><div class="mu">${esc(x.tip)}</div></div><em>${fT(x.s)}</em></div>`).join('')}`;
+${w.steps.map((x,i)=>`<div class="gst"><div class="gth"></div><div><b>${esc(x.n)}</b><div class="mu">${esc(x.tip)}</div></div><em>${fT(x.s)}</em></div>`).join('')}`;
+g.querySelectorAll('.gth').forEach((e,i)=>{const k=animFor(w,w.steps[i]);if(k&&window.KRAnim&&KRAnim.has(k))KRAnim.mount(e,k);else e.textContent=ic(w.sport)});
 g.querySelector('#gx').onclick=()=>g.classList.remove('on');g.querySelector('#gg').onclick=()=>{const b=g.querySelector('#gpsb');runW(w,!!(b&&b.checked))};
 g.querySelector('#gsh').onclick=()=>{if(navigator.share)navigator.share({title:w.name,text:txt(w)}).catch(()=>{});else{try{navigator.clipboard.writeText(txt(w))}catch(e){}toast('Treino copiado')}}}
 const EFF=n=>n<=2?'Muito fácil':n<=4?'Fácil':n<=6?'Moderado':n<=8?'Difícil':'Máximo';
@@ -95,25 +107,27 @@ q('#sf-no').onclick=()=>{if(confirm('Descartar esta atividade?'))g.classList.rem
 q('#sf-ok').onclick=()=>{const a={id:Date.now()+Math.random(),name:(q('#sf-t').value.trim()||w.name).slice(0,60),type:w.sport,date:o.start,pts:thin(o.pts),dist:c.dist,dur:Math.round(o.elapsed),elev:c.elev,eff:+q('#sf-e').value,desc:q('#sf-d').value.trim().slice(0,300),share:q('#sf-s').checked,showMap:q('#sf-m')?q('#sf-m').checked:false,workout:w.name};
 acts.push(a);save();let d=[];try{d=JSON.parse(ls('kr_done','[]'))}catch(e){}d.unshift({name:a.name,sport:w.sport,date:a.date,dur:Math.max(1,Math.round(a.dur/60))});ss('kr_done',JSON.stringify(d.slice(0,50)));
 g.classList.remove('on');renderList();go('feed');toast('Atividade guardada')}}
-async function runW(w,gps){const g=G();AC();let i=0,left=0,pause=false,pS=0,pt=0,off=0,last=-1,tm,wl=null,wid2=null;const start=Date.now(),pts=[],cum=[0];
+let running=false;
+async function runW(w,gps){if(running)return;running=true;const g=G();AC();let i=0,left=0,pause=false,pS=0,pt=0,off=0,last=-1,tm,wl=null,wid2=null,curK,ctl=null;const start=Date.now(),pts=[],cum=[0];
 w.steps.forEach(x=>cum.push(cum[cum.length-1]+x.s));const tot=cum[cum.length-1];
 const getWL=async()=>{try{wl=await navigator.wakeLock.request('screen')}catch(e){}},vc=()=>{if(!document.hidden)getWL()};
 await getWL();document.addEventListener('visibilitychange',vc);
 if(gps&&navigator.geolocation)wid2=navigator.geolocation.watchPosition(p=>{if(p.coords.accuracy<=40&&!pause)pts.push([p.coords.latitude,p.coords.longitude,p.coords.altitude,p.timestamp])},()=>{},{enableHighAccuracy:true});
-g.innerHTML=`<div class="gh"><b>${esc(w.name)}</b><button class="btn" id="gx">Terminar</button></div><div class="gz" id="gz"></div><div class="gn" id="gn"></div><div class="gt" id="gt"></div><p class="mu" id="gp"></p><div class="prog"><i id="gpr"></i></div><p class="mu" id="gnx"></p>
+g.innerHTML=`<div class="gh"><b>${esc(w.name)}</b><button class="btn" id="gx">Terminar</button></div><div class="gz" id="gz"></div><div class="gn" id="gn"></div><div class="gan" id="gan"></div><div class="gt" id="gt"></div><p class="mu" id="gp"></p><div class="prog"><i id="gpr"></i></div><p class="mu" id="gnx"></p>
 <div class="gb"><button class="btn" id="gpa">Pausa</button> <button class="btn" id="gsk">Saltar</button></div>`;
-const q=x=>g.querySelector(x),sched=()=>(Date.now()-start-pt+off)/1000,idxAt=t=>{for(let k=0;k<w.steps.length;k++)if(t<cum[k+1])return k;return w.steps.length};
-const stop=()=>{clearInterval(tm);document.removeEventListener('visibilitychange',vc);try{wl&&wl.release()}catch(e){}if(wid2!=null)navigator.geolocation.clearWatch(wid2)};
+const q=x=>g.querySelector(x),sched=()=>((pause?pS:Date.now())-start-pt+off)/1000,idxAt=t=>{for(let k=0;k<w.steps.length;k++)if(t<cum[k+1])return k;return w.steps.length};
+const stop=()=>{running=false;if(ctl)ctl.stop();clearInterval(tm);document.removeEventListener('visibilitychange',vc);try{wl&&wl.release()}catch(e){}if(wid2!=null)navigator.geolocation.clearWatch(wid2)};
 const prog=()=>{q('#gpr').style.width=Math.min(100,sched()/tot*100)+'%'};
-const paint=()=>{const x=w.steps[i];q('#gz').textContent=x.z;q('#gn').textContent=x.n;q('#gp').textContent=x.tip;q('#gt').textContent=fT(left);prog();q('#gnx').textContent=w.steps[i+1]?'A seguir: '+w.steps[i+1].n+' ('+fT(w.steps[i+1].s)+')':'Último passo'};
+const paint=()=>{const x=w.steps[i],k=animFor(w,x);if(k!==curK){curK=k;if(ctl)ctl.stop();ctl=null;const bx=q('#gan');bx.innerHTML='';if(k&&window.KRAnim&&KRAnim.has(k))ctl=KRAnim.mount(bx,k);else bx.innerHTML=`<div class="gem">${ic(w.sport)}</div>`}
+q('#gz').textContent=x.z;q('#gn').textContent=x.n;q('#gp').textContent=x.tip;q('#gt').textContent=fT(left);prog();q('#gnx').textContent=w.steps[i+1]?'A seguir: '+w.steps[i+1].n+' ('+fT(w.steps[i+1].s)+')':'Último passo'};
 const fin=early=>{stop();const el=Math.round((Date.now()-start-pt-(pause?Date.now()-pS:0))/1000);
 if(early&&el<60){g.classList.remove('on');return}
 if(!early)chime('done');
 saveForm(w,{start,elapsed:el,pts})};
 const set=n=>{i=n;if(i>=w.steps.length)return fin(false);const x=w.steps[i];left=Math.max(0,Math.ceil(cum[i+1]-sched()));last=-1;paint();chime(isRest(x)?'rest':'work')};
 q('#gx').onclick=()=>{if(confirm('Terminar o treino?'))fin(true)};
-q('#gsk').onclick=()=>{off+=cum[i+1]-sched();set(i+1)};
-q('#gpa').onclick=()=>{pause=!pause;q('#gpa').textContent=pause?'Continuar':'Pausa';if(pause)pS=Date.now();else pt+=Date.now()-pS};
+q('#gsk').onclick=()=>{off+=(cum[i+1]-sched())*1000;set(i+1)};
+q('#gpa').onclick=()=>{pause=!pause;q('#gpa').textContent=pause?'Continuar':'Pausa';if(pause){pS=Date.now();if(ctl)ctl.stop()}else{pt+=Date.now()-pS;if(ctl)ctl.play()}};
 tm=setInterval(()=>{if(pause)return;const t=sched(),k=idxAt(t);if(k!==i)return set(k);left=Math.max(0,Math.ceil(cum[i+1]-t));if(left===last)return;last=left;q('#gt').textContent=fT(left);prog()},300);
 set(0)}
 // ---------- interface ----------
@@ -155,12 +169,44 @@ const rs=$('#rstart');if(rs)rs.addEventListener('click',()=>AC());
 const stl=document.createElement('style');stl.textContent=`.ov{position:fixed;inset:0;background:var(--bg);z-index:2500;display:none;overflow:auto;padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}.ov.on{display:block}
 .gh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:20px;margin-bottom:8px}.gb{margin:14px 0;display:flex;gap:10px;flex-wrap:wrap}
 .gst{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--bd)}.gst span{width:26px;height:26px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:13px;flex:none}.gst div{flex:1}.gst em{font-style:normal;color:var(--mu)}
-.gz{margin-top:30px;text-transform:uppercase;letter-spacing:2px;color:var(--ac);font-weight:700;text-align:center}.gn{font-size:28px;font-weight:700;text-align:center;margin:8px 0}.gt{font-size:84px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+.gan{height:min(34vh,280px);max-width:340px;margin:6px auto 0}.gan svg{width:100%;height:100%;display:block}.gem{font-size:96px;text-align:center;line-height:2.6}.gst .gth{width:56px;height:62px;flex:none;display:grid;place-items:center;font-size:26px}.gth svg{width:100%;height:100%}
+.gz{margin-top:14px;text-transform:uppercase;letter-spacing:2px;color:var(--ac);font-weight:700;text-align:center}.gn{font-size:28px;font-weight:700;text-align:center;margin:8px 0}.gt{font-size:68px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
 #gp,#gnx{text-align:center}.wc{cursor:pointer}.wr{display:flex;gap:12px;align-items:center;cursor:pointer}.wr .th{width:80px;height:80px}
 .wpc{background:var(--card);padding:14px 16px;margin-bottom:8px;border-radius:12px}.wpc .sh{margin-bottom:10px}.wph{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
 .wmini{flex:0 0 150px;background:var(--bg);border-radius:12px;padding:12px;cursor:pointer}.wmini span{font-size:24px;display:block}.wmini b{display:block;margin:4px 0 2px;font-size:15px}.wmini small{color:var(--mu)}
-textarea{font:inherit;padding:7px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);-webkit-user-select:text;user-select:text}.lb{display:block;margin:16px 0 6px;color:var(--mu);font-size:14px}.ck{display:block;margin:10px 0}input[type=range]{padding:0}
+textarea{font:inherit;padding:7px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);-webkit-user-select:text;user-select:text}.ib{position:relative}.nb{position:absolute;top:-4px;right:-6px;background:#e0245e;color:#fff;border-radius:10px;font-size:11px;font-weight:700;padding:1px 5px;min-width:18px;text-align:center}
+.lb{display:block;margin:16px 0 6px;color:var(--mu);font-size:14px}.ck{display:block;margin:10px 0}input[type=range]{padding:0}
 @media(max-width:640px){.wpc{border-radius:0}}`;document.head.appendChild(stl);
-window.ic=ic;window.KR_extra=a=>(a.eff?`<div class="mu" style="margin:-4px 0 12px">💪 Esforço ${a.eff}/10 · ${EFF(a.eff)}${a.workout?' · '+esc(a.workout):''}</div>`:'')+(a.desc?`<p style="margin:0 0 12px">${esc(a.desc)}</p>`:'');
+
+const pzOn=()=>{try{return !!JSON.parse(ls('kr_pz','null'))}catch(e){return false}};
+window.KR_edit=a=>{const g=G(),hasG=a.pts&&a.pts.length>1,e0=Math.min(10,Math.max(1,a.eff||5));let et=!!a.eff;g.classList.add('on');
+g.innerHTML=`<div class="gh"><b>Editar atividade</b></div><label class="lb">Título</label><input id="ed-t" value="${esc(a.name)}" maxlength="80" style="width:100%">
+<label class="lb">Descrição</label><textarea id="ed-d" rows="3" maxlength="300" style="width:100%">${esc(a.desc||'')}</textarea>
+<label class="lb">Esforço percebido: <b id="ed-ev" style="color:var(--tx)">${e0}</b>/10 · <span id="ed-el">${EFF(e0)}</span></label><input id="ed-e" type="range" min="1" max="10" value="${e0}" style="width:100%">
+<label class="lb">Visibilidade</label><label class="ck"><input type="checkbox" id="ed-s" ${a.share!==false?'checked':''}> Partilhar com amigos</label>
+${hasG?`<label class="ck"><input type="checkbox" id="ed-m" ${a.showMap===true||(a.showMap===undefined&&pzOn())?'checked':''}> Mostrar o percurso no mapa aos amigos</label><p><button class="btn" id="ed-r">Recalcular subida</button> <span class="mu" id="ed-rv"></span></p>`:''}
+<div class="gb"><button class="btn pri" id="ed-ok">Guardar</button> <button class="btn" id="ed-no">Cancelar</button></div>`;
+const q=x=>g.querySelector(x);
+q('#ed-e').oninput=e=>{et=true;q('#ed-ev').textContent=e.target.value;q('#ed-el').textContent=EFF(+e.target.value)};
+if(hasG)q('#ed-r').onclick=()=>{const v=recalcElev(a);save();q('#ed-rv').textContent='Subida: '+Math.round(v)+' m'};
+q('#ed-no').onclick=()=>g.classList.remove('on');
+q('#ed-ok').onclick=()=>{a.name=(q('#ed-t').value.trim()||a.name).slice(0,80);a.desc=q('#ed-d').value.trim().slice(0,300);if(et)a.eff=+q('#ed-e').value;a.share=q('#ed-s').checked;if(hasG)a.showMap=q('#ed-m').checked;
+save();g.classList.remove('on');renderList();show(a);toast('Atividade atualizada')}};
+window.KR_policy=()=>{const g=G();g.classList.add('on');
+g.innerHTML=`<div class="gh"><b>Política de privacidade</b><button class="btn" id="gx">Fechar</button></div>
+<p class="mu">Texto-modelo. Quem publica a app deve revê-lo e indicar o contacto antes de ter utilizadores. Não substitui aconselhamento jurídico.</p>
+<h3>Quem trata os dados</h3><p>O KeepRun é uma app gratuita. Responsável: [nome]. Contacto: [email de contacto].</p>
+<h3>No teu dispositivo</h3><p>As atividades (percursos GPS, tempos, notas) e as definições ficam guardadas no navegador do teu dispositivo e não saem dele enquanto não ligares uma conta e partilhares.</p>
+<h3>Na nuvem (só se entrares)</h3><p>Se entrares com Google ou email, guardamos no Firebase (Google Cloud): nome, email, foto, código de amigo, lista de amigos, pedidos, e as atividades que partilhares (resumo e, apenas se escolheres, um percurso simplificado), com gostos e comentários. Estes serviços podem tratar dados fora da União Europeia, com as garantias previstas na lei.</p>
+<h3>Para que usamos</h3><p>Para o login, os amigos e a partilha que pediste. A partilha de atividades e de localização depende da tua escolha, em cada atividade e na zona de privacidade.</p>
+<h3>Localização</h3><p>O GPS só é usado enquanto gravas. Podes definir uma zona de privacidade; os pontos dentro dela não são partilhados. Esta proteção reduz o risco, mas não o elimina.</p>
+<h3>Mapas</h3><p>Os mapas vêm do OpenStreetMap. Ao ver um mapa, o teu navegador contacta os servidores deles, que recebem o teu endereço IP.</p>
+<h3>Com quem partilhamos</h3><p>Só com os amigos que aceitaste. Não vendemos dados e não há publicidade.</p>
+<h3>Quanto tempo guardamos</h3><p>Até apagares a atividade ou os teus dados. Em Eu > Conta, o botão "Apagar os meus dados na nuvem" remove tudo o que está na nuvem e a conta.</p>
+<h3>Os teus direitos</h3><p>Podes aceder (Eu > Cópia de segurança), corrigir (Editar), apagar (botão acima), levar os dados contigo (exportar) e opor-te ao tratamento. Para outros pedidos, usa o contacto acima.</p>
+<h3>Menores</h3><p>A app não se destina a menores de 16 anos sem autorização de quem tem a responsabilidade parental.</p>`;
+g.querySelector('#gx').onclick=()=>g.classList.remove('on')};
+window.KR_IC=IC;
+window.animFor=animFor;window.ic=ic;window.KR_extra=a=>(a.eff?`<div class="mu" style="margin:-4px 0 12px">💪 Esforço ${a.eff}/10 · ${EFF(a.eff)}${a.workout?' · '+esc(a.workout):''}</div>`:'')+(a.desc?`<p style="margin:0 0 12px">${esc(a.desc)}</p>`:'');
 window.KRW={lib,picks,forSport,SPORTS};renderWP();if(window.renderCards)renderCards();
 })();

@@ -1,6 +1,6 @@
 // Service worker: rede primeiro para os ficheiros da app, cache-primeiro para as bibliotecas externas fixas.
-const C = 'keeprun-v4';
-const CORE = ['./', 'index.html', 'social.js', 'treinos.js', 'firebase-config.js', 'manifest.webmanifest', 'icon-192.png'];
+const C = 'keeprun-v6';
+const CORE = ['./', 'index.html', 'social.js', 'treinos.js', 'anim.js', 'firebase-config.js', 'manifest.webmanifest', 'icon-192.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css'];
 const EXT = ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'];
 const CDN = ['cdnjs.cloudflare.com', 'www.gstatic.com'];
 self.addEventListener('install', e => {
