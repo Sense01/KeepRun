@@ -1,5 +1,5 @@
 // Service worker: rede primeiro para os ficheiros da app, cache-primeiro para as bibliotecas externas fixas.
-const C = 'keeprun-v6';
+const C = 'keeprun-v7';
 const CORE = ['./', 'index.html', 'social.js', 'treinos.js', 'anim.js', 'firebase-config.js', 'manifest.webmanifest', 'icon-192.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css'];
 const EXT = ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'];
 const CDN = ['cdnjs.cloudflare.com', 'www.gstatic.com'];
@@ -7,7 +7,7 @@ self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(caches.open(C).then(c => Promise.all([
     ...CORE.map(u => c.add(u).catch(() => {})),
-    ...EXT.map(u => c.add(new Request(u, { mode: 'no-cors' })).catch(() => {}))
+    ...EXT.map(u => c.add(new Request(u, { mode: 'cors' })).catch(() => {}))
   ])));
 });
 self.addEventListener('activate', e => e.waitUntil(
@@ -24,7 +24,7 @@ self.addEventListener('fetch', e => {
     }).catch(() => caches.match(r)));
   } else if (CDN.includes(u.hostname)) {
     e.respondWith(caches.match(r).then(m => m || fetch(r).then(res => {
-      try { const cp = res.clone(); caches.open(C).then(c => c.put(r, cp)).catch(() => {}); } catch (x) {}
+      if (res.ok) { try { const cp = res.clone(); caches.open(C).then(c => c.put(r, cp)).catch(() => {}); } catch (x) {} }
       return res;
     })));
   }

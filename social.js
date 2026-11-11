@@ -24,11 +24,15 @@ async function init(){
 addEventListener('online',()=>{if(state==='offline')init()});
 async function onUser(u){
   unsubs.forEach(f=>f());unsubs=[];friends=[];inc=[];FA=[];user=u;code='';for(const k in MY)delete MY[k];
-  if(u){try{await ensureUser();listen()}catch(e){toast('Erro ao preparar a conta')}
+  if(u){
+    if(ls('kr_wipe_'+u.uid,'')==='1'){ss('kr_wipe_'+u.uid,'');try{await deleteUser(u);toast('Dados e conta apagados')}catch(e){await signOut(auth)}renderAll();return}
+    const prev=ls('kr_uid','');if(prev&&prev!==u.uid){ss('kr_share','0');ss('kr_name',uname().split(' ')[0])}
+    ss('kr_uid',u.uid);
+    try{await ensureUser();listen()}catch(e){toast('Erro ao preparar a conta')}
     if(ls('kr_name','')==='')ss('kr_name',uname().split(' ')[0]);hello()}
   renderAll();KR_sync();
 }
-const gen=()=>{const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>ch[Math.floor(Math.random()*ch.length)]).join('')};
+const gen=()=>{const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',b=new Uint32Array(6);crypto.getRandomValues(b);return Array.from(b,x=>ch[x%ch.length]).join('')};
 async function ensureUser(){
   const r=doc(db,'users',user.uid),s=await getDoc(r);let c=s.exists()?String(s.data().code||''):'';
   for(let n=0;n<6;n++){
@@ -95,7 +99,7 @@ async function doSync(){
   if(state!=='ready'||!user)return;const sk='kr_synced_'+user.uid;let old=[];try{old=JSON.parse(ls(sk,'[]'))}catch(e){}
   const list=(ls('kr_share','1')==='1'?acts:[]).filter(a=>a.share!==false),sig=a=>key(a)+'|'+(mapOK(a)?1:0)+'|'+zh(),wS=new Set(list.map(sig)),wK=new Set(list.map(key));
   try{for(const a of list)if(!old.includes(sig(a)))await setDoc(doc(db,'activities',user.uid,'items',key(a)),pack(a));
-    for(const e of old){const k=e.split('|')[0];if(!wK.has(k))await deleteDoc(doc(db,'activities',user.uid,'items',k))}
+    for(const e of old){const k=e.split('|')[0];if(!wK.has(k)){for(const sub of ['kudos','comments']){try{const s=await getDocs(collection(db,'activities',user.uid,'items',k,sub));for(const x of s.docs)await deleteDoc(x.ref)}catch(x){}}await deleteDoc(doc(db,'activities',user.uid,'items',k))}}
     ss(sk,JSON.stringify([...wS]))}catch(e){toast('Erro ao sincronizar')}
 }
 // ---- ações ----
@@ -114,17 +118,17 @@ async function addFriend(c){c=c.trim().toUpperCase();if(c.length<4)return toast(
 async function accept(i){const r=inc[i];if(!r)return;
   try{await setDoc(doc(db,'users',user.uid,'friends',r.from),{name:String(r.fromName||'Amigo').slice(0,60),t:Date.now()});await updateDoc(doc(db,'requests',r.id),{status:'accepted'})}catch(e){toast('Erro')}}
 const decline=i=>{const r=inc[i];if(r)deleteDoc(doc(db,'requests',r.id)).catch(()=>toast('Erro'))};
-async function removeF(i){const f=friends[i];if(!f||!confirm('Remover amigo?'))return;try{await deleteDoc(doc(db,'users',user.uid,'friends',f.id));await deleteDoc(doc(db,'users',f.id,'friends',user.uid))}catch(e){}}
+async function removeF(i){const f=friends[i];if(!f||!confirm('Remover amigo?'))return;try{await deleteDoc(doc(db,'users',user.uid,'friends',f.id));await deleteDoc(doc(db,'users',f.id,'friends',user.uid));await deleteDoc(doc(db,'requests',user.uid+'_'+f.id)).catch(()=>{});await deleteDoc(doc(db,'requests',f.id+'_'+user.uid)).catch(()=>{})}catch(e){}}
 async function wipe(){
   if(!confirm('Apagar todos os teus dados na nuvem (atividades partilhadas, amigos, pedidos, código e conta)? As atividades guardadas neste dispositivo mantêm-se.'))return;
-  try{const me=user.uid;
+  try{const me=user.uid;ss('kr_share','0');
     for(const f of friends){try{const its=await getDocs(query(collection(db,'activities',f.id,'items'),limit(200)));for(const d of its.docs){await deleteDoc(doc(db,'activities',f.id,'items',d.id,'kudos',me)).catch(()=>{});const cs=await getDocs(query(collection(db,'activities',f.id,'items',d.id,'comments'),where('uid','==',me)));for(const c of cs.docs)await deleteDoc(c.ref).catch(()=>{})}}catch(e){}}
     const it=await getDocs(collection(db,'activities',me,'items'));for(const d of it.docs){for(const sub of ['kudos','comments']){const ss2=await getDocs(collection(db,'activities',me,'items',d.id,sub));for(const x of ss2.docs)await deleteDoc(x.ref)}await deleteDoc(d.ref)}
     for(const f of friends){await deleteDoc(doc(db,'users',me,'friends',f.id)).catch(()=>{});await deleteDoc(doc(db,'users',f.id,'friends',me)).catch(()=>{})}
     for(const k of ['from','to']){const rs=await getDocs(query(collection(db,'requests'),where(k,'==',me)));for(const d of rs.docs)await deleteDoc(d.ref)}
     if(code)await deleteDoc(doc(db,'codes',code)).catch(()=>{});
     await deleteDoc(doc(db,'users',me)).catch(()=>{});ss('kr_synced_'+me,'[]');
-    try{await deleteUser(user);toast('Dados e conta apagados')}catch(e){await signOut(auth);toast('Dados apagados. Para apagar também a conta, entra de novo e repete.')}
+    try{await deleteUser(user);toast('Dados e conta apagados')}catch(e){ss('kr_wipe_'+me,'1');await signOut(auth);toast('Dados apagados. Entra de novo para concluir a eliminação da conta.')}
   }catch(e){toast('Erro ao apagar')}}
 // ---- interface ----
 const sub=m=>'<div class="card"><b>Conta</b><p class="mu">'+m+'</p></div>';
@@ -132,7 +136,7 @@ function renderZone(){const z=pz();
   return `<div class="card"><b>Zona de privacidade</b><p class="mu">Esconde dos amigos o percurso perto de um local, por exemplo a tua casa. ${z?`Ativa, com raio de ${z.r} m.`:'Ainda não definida: os percursos só são partilhados se escolheres mostrá-los em cada atividade.'} Não é uma garantia absoluta: percursos que começam e acabam sempre no mesmo sítio podem indicar a zona.</p>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pz-r" aria-label="Raio">${[200,400,800,1500].map(r=>`<option value="${r}" ${z&&z.r===r?'selected':''}>${r} m</option>`).join('')}</select><button class="btn" id="pz-set">Usar a minha localização atual</button>${z?'<button class="btn" id="pz-clear">Remover</button>':''}</div></div>`}
 function bindZone(el){const s=el.querySelector('#pz-set');if(!s)return;
-  s.onclick=()=>{if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{ss('kr_pz',JSON.stringify({lat:p.coords.latitude,lon:p.coords.longitude,r:+el.querySelector('#pz-r').value}));toast('Zona definida');KR_sync();renderAcct()},()=>toast('Não consegui obter a localização'))};
+  s.onclick=()=>{if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{const b=new Uint32Array(2);crypto.getRandomValues(b);const ang=(b[0]/4294967296)*2*Math.PI,rad=30+(b[1]/4294967296)*50,dLat=(rad*Math.cos(ang))/111320,dLon=(rad*Math.sin(ang))/(111320*Math.max(0.1,Math.cos(p.coords.latitude*Math.PI/180)));ss('kr_pz',JSON.stringify({lat:+(p.coords.latitude+dLat).toFixed(5),lon:+(p.coords.longitude+dLon).toFixed(5),r:+el.querySelector('#pz-r').value}));toast('Zona definida');KR_sync();renderAcct()},()=>toast('Não consegui obter a localização'))};
   el.querySelector('#pz-r').onchange=e=>{const z=pz();if(z){z.r=+e.target.value;ss('kr_pz',JSON.stringify(z));KR_sync();renderAcct()}};
   const c=el.querySelector('#pz-clear');if(c)c.onclick=()=>{ss('kr_pz','null');KR_sync();renderAcct()}}
 function renderAcct(){const el=$('#acct');if(!el)return;let h='';

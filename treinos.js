@@ -144,7 +144,7 @@ if(!window.L){g.querySelector('#rm2').innerHTML='<p class="mu" style="padding:16
 const m=L.map('rm2');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(m);
 const pl=L.polyline(o.pts.map(p=>[p[0],p[1]]),{color:'#fc4c02',weight:4}).addTo(m);m.fitBounds(pl.getBounds(),{padding:[20,20]})}
 function renderRoutes(){const el=$('#wr');if(!el)return;const {ty,out}=routes();
-el.innerHTML=`<p class="mu">Percursos de ${ty.toLowerCase()} feitos por ti e pelos teus amigos. <button class="btn" id="wnear">Perto de mim</button></p>`+(out.length?out.map((o,i)=>`<div class="card wr" data-i="${i}">${thumb(o.pts)}<div><b>${esc(o.t)}</b><div class="mu">${(o.d/1000).toFixed(1)} km · ${esc(o.src)}${o.near!=null?' · a '+(o.near/1000).toFixed(1)+' km de ti':''}</div></div></div>`).join(''):'<p class="mu">Ainda não há percursos. Grava ou importa atividades, e os percursos dos amigos também aparecem aqui.</p>');
+el.innerHTML=`<p class="mu">Percursos de ${esc(ty.toLowerCase())} feitos por ti e pelos teus amigos. <button class="btn" id="wnear">Perto de mim</button></p>`+(out.length?out.map((o,i)=>`<div class="card wr" data-i="${i}">${thumb(o.pts)}<div><b>${esc(o.t)}</b><div class="mu">${(Number(o.d)/1000||0).toFixed(1)} km · ${esc(o.src)}${o.near!=null?' · a '+(o.near/1000).toFixed(1)+' km de ti':''}</div></div></div>`).join(''):'<p class="mu">Ainda não há percursos. Grava ou importa atividades, e os percursos dos amigos também aparecem aqui.</p>');
 el.querySelectorAll('.wr').forEach(e=>e.onclick=()=>{const o=out[+e.dataset.i];if(o.a)show(o.a);else openRoute(o)});
 $('#wnear').onclick=()=>{if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{pos=[p.coords.latitude,p.coords.longitude];renderRoutes()},()=>toast('Não consegui obter a localização'))}}
 window.renderWO=function(){const el=$('#wo');if(!el)return;const oldC=el.querySelector('#spc'),sx=oldC?oldC.scrollLeft:0,oy=window.scrollY;const c=ctx(),it=intent(),list=sel==='Sugestões'?picks(it):forSport(sel,c.dur,c.nov,c.rn);let dn=[];try{dn=JSON.parse(ls('kr_done','[]'))}catch(e){}
@@ -207,6 +207,6 @@ g.innerHTML=`<div class="gh"><b>Política de privacidade</b><button class="btn" 
 <h3>Menores</h3><p>A app não se destina a menores de 16 anos sem autorização de quem tem a responsabilidade parental.</p>`;
 g.querySelector('#gx').onclick=()=>g.classList.remove('on')};
 window.KR_IC=IC;
-window.animFor=animFor;window.ic=ic;window.KR_extra=a=>(a.eff?`<div class="mu" style="margin:-4px 0 12px">💪 Esforço ${a.eff}/10 · ${EFF(a.eff)}${a.workout?' · '+esc(a.workout):''}</div>`:'')+(a.desc?`<p style="margin:0 0 12px">${esc(a.desc)}</p>`:'');
+window.animFor=animFor;window.ic=ic;window.KR_extra=a=>(a.eff?`<div class="mu" style="margin:-4px 0 12px">💪 Esforço ${+a.eff}/10 · ${EFF(+a.eff)}${a.workout?' · '+esc(a.workout):''}</div>`:'')+(a.desc?`<p style="margin:0 0 12px">${esc(a.desc)}</p>`:'');
 window.KRW={lib,picks,forSport,SPORTS};renderWP();if(window.renderCards)renderCards();
 })();

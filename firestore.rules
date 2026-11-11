@@ -5,9 +5,11 @@ service cloud.firestore {
     function me(uid) { return request.auth != null && request.auth.uid == uid; }
     function canSee(owner) { return signedIn() && (request.auth.uid == owner || exists(/databases/$(database)/documents/users/$(owner)/friends/$(request.auth.uid))); }
 
-    // Perfil: leitura individual (sem listagem).
+    // Perfil: leitura apenas pelo próprio, amigos ou destinatário de pedido de amizade (sem listagem).
     match /users/{uid} {
-      allow get: if signedIn();
+      allow get: if me(uid)
+        || exists(/databases/$(database)/documents/users/$(uid)/friends/$(request.auth.uid))
+        || exists(/databases/$(database)/documents/requests/$(uid + '_' + request.auth.uid));
       allow list: if false;
       allow create, update: if me(uid)
         && request.resource.data.keys().hasOnly(['name', 'photo', 'code'])
@@ -18,9 +20,13 @@ service cloud.firestore {
 
       match /friends/{fid} {
         allow read: if me(uid);
-        allow create, update: if me(uid)
+        allow create, update: if me(uid) && fid != uid
+          && (exists(/databases/$(database)/documents/requests/$(uid + '_' + fid))
+            || exists(/databases/$(database)/documents/requests/$(fid + '_' + uid))
+            || exists(/databases/$(database)/documents/users/$(fid)/friends/$(uid)))
           && request.resource.data.keys().hasOnly(['name', 't'])
-          && request.resource.data.name is string && request.resource.data.name.size() <= 60;
+          && request.resource.data.name is string && request.resource.data.name.size() <= 60
+          && request.resource.data.t is number;
         allow delete: if me(uid) || me(fid);
       }
     }
@@ -30,10 +36,12 @@ service cloud.firestore {
       allow get: if signedIn();
       allow list: if false;
       allow create: if signedIn()
+        && code.size() >= 4 && code.size() <= 8
         && request.resource.data.keys().hasOnly(['uid', 'name'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.name is string && request.resource.data.name.size() <= 60;
       allow update: if signedIn() && resource.data.uid == request.auth.uid
+        && code.size() >= 4 && code.size() <= 8
         && request.resource.data.keys().hasOnly(['uid', 'name'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.name is string && request.resource.data.name.size() <= 60;
@@ -48,7 +56,8 @@ service cloud.firestore {
         && request.resource.data.to is string && request.resource.data.to != request.auth.uid
         && id == request.resource.data.to + '_' + request.auth.uid
         && request.resource.data.status == 'pending'
-        && request.resource.data.fromName is string && request.resource.data.fromName.size() <= 60;
+        && request.resource.data.fromName is string && request.resource.data.fromName.size() <= 60
+        && request.resource.data.t is number;
       allow read, delete: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
       allow update: if signedIn() && resource.data.to == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
@@ -63,9 +72,11 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['title', 'type', 'date', 'dist', 'dur', 'elev', 'r', 'eff', 'desc'])
         && request.resource.data.title is string && request.resource.data.title.size() <= 80
         && request.resource.data.type is string && request.resource.data.type.size() <= 40
-        && request.resource.data.date is number && request.resource.data.dist is number
-        && request.resource.data.dur is number && request.resource.data.elev is number
-        && request.resource.data.eff is number
+        && request.resource.data.date is number && request.resource.data.date > 0 && request.resource.data.date <= request.time.toMillis() + 86400000
+        && request.resource.data.dist is number && request.resource.data.dist >= 0 && request.resource.data.dist <= 10000000
+        && request.resource.data.dur is number && request.resource.data.dur >= 0 && request.resource.data.dur <= 8640000
+        && request.resource.data.elev is number && request.resource.data.elev >= -10000 && request.resource.data.elev <= 100000
+        && request.resource.data.eff is number && request.resource.data.eff >= 0 && request.resource.data.eff <= 10
         && request.resource.data.desc is string && request.resource.data.desc.size() <= 300
         && request.resource.data.r is list && request.resource.data.r.size() <= 170;
       allow delete: if me(uid);
