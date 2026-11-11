@@ -168,26 +168,40 @@ function mfpInfo(){const m=getMFP();if(!m)return null;const c=ctx(),diff=m.food-
 function parseMFPText(raw){
   const txt=String(raw||'').replace(/\r/g,'\n'),cleanNum=s=>parseInt(String(s).replace(/[.,\s]/g,''),10);
   let goal=0,food=0,carbs=0,protein=0,fat=0;const meals=[];
+  // 0) Suporte para exportação CSV estruturada do MyFitnessPal (colunas Date, Meal, Calories, Fat (g), Carbohydrates (g), Protein (g))
+  const lines=txt.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length>=2&&/,/.test(lines[0])&&/calor/i.test(lines[0])){
+    const splitCSV=l=>{const o=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){o.push(c.trim());c=''}else c+=ch}o.push(c.trim());return o};
+    const hdr=splitCSV(lines[0]).map(h=>h.toLowerCase()),iCal=hdr.findIndex(h=>/calor/.test(h)),iCarb=hdr.findIndex(h=>/carb|hidrato/.test(h)),iProt=hdr.findIndex(h=>/prot/.test(h)),iFat=hdr.findIndex(h=>/^(fat|gordura|l[ií]pido)/.test(h)),iDate=hdr.findIndex(h=>/date|data/.test(h)),iMeal=hdr.findIndex(h=>/meal|refei/.test(h));
+    if(iCal>=0){
+      const rows=lines.slice(1).map(splitCSV).filter(r=>r.length>iCal&&isFinite(parseFloat(r[iCal])));
+      if(rows.length){
+        const lastDate=iDate>=0?rows[rows.length-1][iDate]:null,dayRows=lastDate?rows.filter(r=>r[iDate]===lastDate):rows;
+        dayRows.forEach(r=>{const kc=Math.round(parseFloat(r[iCal])||0);food+=kc;if(iCarb>=0)carbs+=Math.round(parseFloat(r[iCarb])||0);if(iProt>=0)protein+=Math.round(parseFloat(r[iProt])||0);if(iFat>=0)fat+=Math.round(parseFloat(r[iFat])||0);if(iMeal>=0&&r[iMeal]&&kc>0)meals.push(`${r[iMeal]}: ${kc} kcal`)});
+      }
+    }
+  }
   // 1) Tentar encontrar a equação clássica do MyFitnessPal: Meta - Alimentos + Exercício = Restantes
   const nums=(txt.match(/\b\d{1,2}[.,]\d{3}\b|\b\d{1,4}\b/g)||[]).map(cleanNum).filter(n=>isFinite(n)&&n>=0&&n<=12000);
   for(let i=0;i+3<nums.length;i++){
     const G=nums[i],F=nums[i+1],E=nums[i+2],R=nums[i+3];
-    if(G>=1000&&G<=5500&&F>=100&&F<=8000&&E<=3500&&(Math.abs((G-F+E)-R)<=15||Math.abs(Math.abs(G-F+E)-R)<=15)){goal=G;food=F;break}
+    if(G>=1000&&G<=5500&&F>=100&&F<=8000&&E<=3500&&(Math.abs((G-F+E)-R)<=15||Math.abs(Math.abs(G-F+E)-R)<=15)){goal=G;if(!food)food=F;break}
   }
   // 2) Refeições individuais (PT / EN)
-  const mealRx=[['Pequeno-almoço',/(?:pequeno[-\s]*almo[cç]o|caf[eé]\s*da\s*manh[aã]|breakfast)[^\d\n]{0,25}(\d[\d.,]*)/i],['Almoço',/(?:^|\n|\s)almo[cç]o|lunch[^\d\n]{0,25}(\d[\d.,]*)/i],['Jantar',/(?:jantar|dinner)[^\d\n]{0,25}(\d[\d.,]*)/i],['Lanches',/(?:lanches?|snacks?)[^\d\n]{0,25}(\d[\d.,]*)/i]];
   let mealSum=0;
-  for(const [label,rx] of [['Pequeno-almoço',/(?:pequeno[-\s]*almo[cç]o|caf[eé]\s*da\s*manh[aã]|breakfast)[^\d\n]{0,30}(\d{2,4}(?:[.,]\d{3})?)/i],['Almoço',/(?:^|[\n\r\s])(?:almo[cç]o|lunch)[^\d\n]{0,30}(\d{2,4}(?:[.,]\d{3})?)/i],['Jantar',/(?:jantar|dinner)[^\d\n]{0,30}(\d{2,4}(?:[.,]\d{3})?)/i],['Lanches',/(?:lanches?|snacks?)[^\d\n]{0,30}(\d{2,4}(?:[.,]\d{3})?)/i]]){
-    const m=txt.match(rx);if(m){const v=cleanNum(m[1]);if(v>0&&v<4500){mealSum+=v;meals.push(`${label}: ${v} kcal`)}}
+  if(!meals.length){
+    for(const [label,rx] of [['Pequeno-almoço',/(?:pequeno[-\s]*almo[cç]o|caf[eé]\s*da\s*manh[aã]|breakfast)[^\d\n]{0,30}(\d{1,2}[.,]\d{3}|\d{2,4})/i],['Almoço',/(?:^|[\n\r\s])(?:almo[cç]o|lunch)[^\d\n]{0,30}(\d{1,2}[.,]\d{3}|\d{2,4})/i],['Jantar',/(?:jantar|dinner)[^\d\n]{0,30}(\d{1,2}[.,]\d{3}|\d{2,4})/i],['Lanches',/(?:lanches?|snacks?)[^\d\n]{0,30}(\d{1,2}[.,]\d{3}|\d{2,4})/i]]){
+      const m=txt.match(rx);if(m){const v=cleanNum(m[1]);if(v>0&&v<4500){mealSum+=v;meals.push(`${label}: ${v} kcal`)}}
+    }
   }
   if(!food&&mealSum>0)food=mealSum;
   // 3) Macros (Hidratos / Carbs, Proteína / Protein, Gordura / Fat) em gramas
   const mCarb=txt.match(/(?:hidratos(?:\s*de\s*carbono)?|carboidratos|carbohydrates|carbs)[^\d\n]{0,35}(\d{1,4})\s*g\b/i)||txt.match(/(\d{1,4})\s*g\s*(?:hidratos|carboidratos|carbs|carbohydrates)/i);
   const mProt=txt.match(/(?:prote[ií]nas?|protein)[^\d\n]{0,35}(\d{1,4})\s*g\b/i)||txt.match(/(\d{1,4})\s*g\s*(?:prote[ií]nas?|protein)/i);
   const mFat=txt.match(/(?:gorduras?|l[ií]pidos|fat)[^\d\n]{0,35}(\d{1,4})\s*g\b/i)||txt.match(/(\d{1,4})\s*g\s*(?:gorduras?|l[ií]pidos|fat)/i);
-  if(mCarb)carbs=Math.min(1200,cleanNum(mCarb[1]));
-  if(mProt)protein=Math.min(600,cleanNum(mProt[1]));
-  if(mFat)fat=Math.min(500,cleanNum(mFat[1]));
+  if(!carbs&&mCarb)carbs=Math.min(1200,cleanNum(mCarb[1]));
+  if(!protein&&mProt)protein=Math.min(600,cleanNum(mProt[1]));
+  if(!fat&&mFat)fat=Math.min(500,cleanNum(mFat[1]));
   // 4) Fallback de calorias / meta se ainda não encontrados
   if(!goal){const mg=txt.match(/(?:meta|goal|objetivo)[^\d\n]{0,25}(\d{1,2}[.,]\d{3}|\d{3,4})/i);if(mg)goal=cleanNum(mg[1])}
   if(!food){const mf=txt.match(/(?:alimentos|comida|food|total|consumid[oa]s?)[^\d\n]{0,25}(\d{1,2}[.,]\d{3}|\d{3,4})/i);if(mf)food=cleanNum(mf[1])}
@@ -195,22 +209,23 @@ function parseMFPText(raw){
   if(!goal){const cands=nums.filter(n=>n>=1200&&n<=4500);goal=cands[0]||2000}
   if(!food){const cands=nums.filter(n=>n>=200&&n<=5000&&n!==goal);food=cands[0]||1800}
   if(!carbs&&!protein&&!fat&&food>0){carbs=Math.round(food*0.48/4);protein=Math.round(food*0.24/4);fat=Math.round(food*0.28/9)}
-  return{food:Math.max(100,Math.min(10000,food)),goal:Math.max(800,Math.min(8000,goal)),carbs,protein,fat,meals,ts:Date.now()}
+  return{food:Math.max(100,Math.min(10000,food)),goal:Math.max(800,Math.min(8000,goal)),carbs:Math.min(1200,carbs),protein:Math.min(600,protein),fat:Math.min(500,fat),meals:meals.slice(0,6),ts:Date.now()}
 }
 let tessP=null;
 function loadTess(){if(window.Tesseract)return Promise.resolve(window.Tesseract);if(tessP)return tessP;
-  tessP=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.crossOrigin='anonymous';s.onload=()=>res(window.Tesseract);s.onerror=()=>rej(new Error('Sem ligação ao motor OCR'));document.head.appendChild(s)});return tessP}
+  tessP=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.crossOrigin='anonymous';s.onload=()=>res(window.Tesseract);s.onerror=()=>{tessP=null;rej(new Error('Sem ligação ao motor OCR'))};document.head.appendChild(s)});return tessP}
 async function preprocessImg(file){
   const url=URL.createObjectURL(file);
   try{
     const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url});
     const sc=Math.min(2,Math.max(1,1400/Math.max(img.width,img.height,1))),w=Math.round(img.width*sc),h=Math.round(img.height*sc);
     const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d');cx.drawImage(img,0,0,w,h);
+    const previewUrl=cv.toDataURL('image/jpeg',0.82);
     const id=cx.getImageData(0,0,w,h),d=id.data;let sum=0;
     for(let i=0;i<d.length;i+=4)sum+=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
     const dark=(sum/(d.length/4))<115;
     for(let i=0;i<d.length;i+=4){let y=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];if(dark)y=255-y;y=Math.max(0,Math.min(255,(y-128)*1.35+128));d[i]=d[i+1]=d[i+2]=y}
-    cx.putImageData(id,0,0);return{dataUrl:url,ocrSource:cv.toDataURL('image/png')}
+    cx.putImageData(id,0,0);URL.revokeObjectURL(url);return{dataUrl:previewUrl,ocrSource:cv.toDataURL('image/png')}
   }catch(e){return{dataUrl:url,ocrSource:url}}
 }
 let mfpPreviewUrl='';
@@ -268,12 +283,14 @@ function routes(){const c=ctx(),b=AL[sel]||sel,ty=['Corrida','Bicicleta','Caminh
 acts.filter(a=>(AL[a.type]||a.type)===ty&&a.pts&&a.pts.length>1).slice(0,8).forEach(a=>out.push({t:a.name,d:a.dist,src:'Tu',pts:a.pts,a}));
 (window.KR_fa?KR_fa():[]).filter(x=>(AL[x.type]||x.type)===ty&&x.r&&x.r.length>3).forEach(x=>{const p=[];for(let i=0;i+1<x.r.length;i+=2)p.push([x.r[i],x.r[i+1]]);out.push({t:x.title,d:x.dist,src:x.fname,pts:p})});
 if(pos)out.forEach(o=>o.near=hav(pos,o.pts[0]));out.sort((a,b)=>pos?a.near-b.near:0);return{ty,out:out.slice(0,6)}}
+let rmap2;
 function openRoute(o){const g=G();g.classList.add('on');
+if(rmap2){try{rmap2.remove()}catch(e){}rmap2=null}
 g.innerHTML=`<div class="gh"><b>${esc(o.t)}</b><button class="btn" id="gx">Fechar</button></div><p class="mu">${(Number(o.d)/1000||0).toFixed(1)} km · ${esc(o.src)}</p><div id="rm2" style="height:55vh;border-radius:12px"></div>`;
-g.querySelector('#gx').onclick=()=>g.classList.remove('on');
+g.querySelector('#gx').onclick=()=>{if(rmap2){try{rmap2.remove()}catch(e){}rmap2=null}g.classList.remove('on')};
 if(!window.L){g.querySelector('#rm2').innerHTML='<p class="mu" style="padding:16px">O mapa não está disponível sem ligação.</p>';return}
-const m=L.map('rm2');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(m);
-const pl=L.polyline(o.pts.map(p=>[p[0],p[1]]),{color:'#fc4c02',weight:4}).addTo(m);m.fitBounds(pl.getBounds(),{padding:[20,20]})}
+const m=rmap2=L.map('rm2');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(m);
+const pl=L.polyline(o.pts.map(p=>[p[0],p[1]]),{color:'#fc4c02',weight:4}).addTo(m);setTimeout(()=>{m.invalidateSize();m.fitBounds(pl.getBounds(),{padding:[20,20]})},50)}
 function renderRoutes(){const el=$('#wr');if(!el)return;const {ty,out}=routes();
 el.innerHTML=`<p class="mu">Percursos de ${esc(ty.toLowerCase())} feitos por ti e pelos teus amigos. <button class="btn" id="wnear">Perto de mim</button></p>`+(out.length?out.map((o,i)=>`<div class="card wr" data-i="${i}">${thumb(o.pts)}<div><b>${esc(o.t)}</b><div class="mu">${(Number(o.d)/1000||0).toFixed(1)} km · ${esc(o.src)}${o.near!=null?' · a '+(o.near/1000).toFixed(1)+' km de ti':''}</div></div></div>`).join(''):'<p class="mu">Ainda não há percursos. Grava ou importa atividades, e os percursos dos amigos também aparecem aqui.</p>');
 el.querySelectorAll('.wr').forEach(e=>e.onclick=()=>{const o=out[+e.dataset.i];if(o.a)show(o.a);else openRoute(o)});

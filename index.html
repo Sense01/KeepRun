@@ -194,7 +194,7 @@ const fTL=s=>{s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60)
 const fDT=t=>new Date(t).toLocaleString('pt-PT',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const wkId=t=>{const d=new Date(t);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()};
 function streakW(){const S=new Set(acts.map(a=>wkId(a.date)));let w=wkId(Date.now()),n=0;if(!S.has(w))w=wkId(w-36e5*24*3);while(S.has(w)){n++;w=wkId(w-36e5*24*3)}return n}
-const ach=a=>{const lg=acts.reduce((m,x)=>x.dist>m.dist?x:m,acts[0]);return (a.dist>=5000)+(a.dist>=10000)+(a.dist>=21100)+(a===lg&&acts.length>1)};
+const ach=a=>{const lg=acts.reduce((m,x)=>x.dist>m.dist?x:m,acts[0]);return (a.dist>=5000)+(a.dist>=10000)+(a.dist>=21100)+(a===lg&&acts.length>1&&a.dist>0)};
 function cal(){const n=new Date(),y=n.getFullYear(),m=n.getMonth(),f=(new Date(y,m,1).getDay()+6)%7,dim=new Date(y,m+1,0).getDate();
 const has=new Set(acts.filter(a=>{const d=new Date(a.date);return d.getFullYear()===y&&d.getMonth()===m}).map(a=>new Date(a.date).getDate()));
 let h='<div class="card" style="border-radius:0;margin-bottom:8px"><b>'+n.toLocaleDateString('pt-PT',{month:'long',year:'numeric'})+'</b><div class="cg">'+['S','T','Q','Q','S','S','D'].map(d=>`<u>${d}</u>`).join('')+'<s></s>'.repeat(f);
@@ -232,7 +232,7 @@ $('#chat').onclick=()=>toast('Mensagens chegam com o backend');
 $('#bell').onclick=()=>toast('Sem notificações novas');
 let amap,alay;
 function renderMaps(){if(!window.L){$('#amap').innerHTML='<p class="mu" style="padding:16px">Mapa indisponível sem ligação.</p>';return}if(!amap){amap=L.map('amap').setView([38.72,-9.14],11);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(amap);alay=L.layerGroup().addTo(amap)}
-alay.clearLayers();const all=[];acts.forEach(a=>{const ll=a.pts.map(p=>[p[0],p[1]]);for(const p of ll)all.push(p);L.polyline(ll,{color:'#fc4c02',weight:3,opacity:.55}).addTo(alay)});
+alay.clearLayers();const all=[];acts.forEach(a=>{if(!a.pts||a.pts.length<2)return;const ll=a.pts.map(p=>[p[0],p[1]]);for(const p of ll)all.push(p);L.polyline(ll,{color:'#fc4c02',weight:3,opacity:.55}).addTo(alay)});
 setTimeout(()=>{amap.invalidateSize();if(all.length)amap.fitBounds(all,{padding:[20,20]})},60)}
 function renderGroups(){const m0=new Date();m0.setDate(1);m0.setHours(0,0,0,0);
 const mk=acts.filter(a=>a.date>=m0.getTime()).reduce((q,a)=>q+a.dist,0)/1000,tk=acts.reduce((q,a)=>q+a.dist,0)/1000,best=Math.max(0,...acts.map(a=>a.dist))/1000;
@@ -267,7 +267,7 @@ $('#sp').innerHTML=rows}
 function exportGPX(a){const T={Corrida:'running',Bicicleta:'cycling',Caminhada:'walking'}[a.type]||a.type;
 const g=`<?xml version="1.0"?><gpx version="1.1" creator="KeepRun" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${esc(a.name)}</name><type>${esc(T)}</type><trkseg>`+
 a.pts.map(p=>{const d=new Date(p[3]&&isFinite(p[3])&&p[3]>0?p[3]:Date.now()),iso=isFinite(d.getTime())?d.toISOString():new Date().toISOString();return `<trkpt lat="${+p[0]||0}" lon="${+p[1]||0}">${p[2]!=null&&isFinite(+p[2])?`<ele>${+p[2]}</ele>`:''}<time>${iso}</time></trkpt>`}).join('')+'</trkseg></trk></gpx>';
-const u=URL.createObjectURL(new Blob([g],{type:'application/gpx+xml'})),l=document.createElement('a');l.href=u;l.download=String(a.name||'atividade').replace(/[\\/:*?"<>|]/g,'_')+'.gpx';l.click()}
+const u=URL.createObjectURL(new Blob([g],{type:'application/gpx+xml'})),l=document.createElement('a');l.href=u;l.download=String(a.name||'atividade').replace(/[\\/:*?"<>|]/g,'_')+'.gpx';l.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
 // Gravação
 let rmap,rline,wid,tick,rp=[],t0;
 let rwl=null,rrec=false,lastSave=0;
@@ -301,7 +301,7 @@ const runs=acts.filter(a=>a.type==='Corrida'&&a.dist>1000);const best=runs.sort(
 const longest=[...acts].sort((a,b)=>b.dist-a.dist)[0];
 s.innerHTML=`<div id="acct"></div>${BK}<div class="card"><b>${esc(ls('kr_name','Atleta'))}</b> <button class="btn" id="nm">Mudar nome</button></div><div class="card"><div class="row"><div><div class="big">${acts.length}</div><div class="mu">atividades</div></div><div><div class="big">${(tot.d/1000).toFixed(1)}</div><div class="mu">km totais</div></div><div><div class="big">${(tot.t/3600).toFixed(1)}</div><div class="mu">horas</div></div><div><div class="big">${Math.round(tot.e)}</div><div class="mu">m subida</div></div></div></div>
 <div class="card"><b>Km por semana</b><div class="bar" style="margin:14px 0 24px">${wk.map(w=>`<div style="height:${w.v/mx*100}%" title="${w.v.toFixed(1)} km"><span>${w.l}</span></div>`).join('')}</div></div>
-<div class="card"><b>Recordes pessoais</b><p>Maior distância: ${longest?(longest.dist/1000).toFixed(2)+' km ('+esc(longest.name)+')':'--'}</p><p>Melhor ritmo (corrida): ${best?fP(best.dist,best.dur)+' ('+esc(best.name)+')':'--'}</p></div>`;window.KR_acct&&window.KR_acct();bindBackup();$('#nm').onclick=()=>{const n=prompt('O teu nome',ls('kr_name','Atleta'));if(n){ss('kr_name',n.slice(0,30));renderStats();hello()}}}
+<div class="card"><b>Recordes pessoais</b><p>Maior distância: ${longest&&longest.dist>0?(longest.dist/1000).toFixed(2)+' km ('+esc(longest.name)+')':'--'}</p><p>Melhor ritmo (corrida): ${best?fP(best.dist,best.dur)+' ('+esc(best.name)+')':'--'}</p></div>`;window.KR_acct&&window.KR_acct();bindBackup();$('#nm').onclick=()=>{const n=prompt('O teu nome',ls('kr_name','Atleta'));if(n){ss('kr_name',n.slice(0,30));renderStats();hello()}}}
 function go(v){window.fixBar&&setTimeout(window.fixBar,50);document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hide',s.id!==v));
 document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='detail'||v==='wo'?'feed':v)));window.scrollTo(0,0);
 if(v==='stats')renderStats();if(v==='maps')renderMaps();if(v==='groups')renderGroups();if(v==='wo')window.renderWO&&renderWO();if(v==='rec'&&rmap)setTimeout(()=>rmap.invalidateSize(),50)}
@@ -331,7 +331,7 @@ function bindBackup(){const ex=$('#bk-ex');if(!ex)return;
 ex.onclick=async()=>{const data={app:'KeepRun',v:2,exported:new Date().toISOString(),settings:Object.fromEntries(BKEYS.map(k=>[k,ls(k,null)]).filter(x=>x[1]!==null)),acts};
 const name='keeprun-backup-'+new Date().toISOString().slice(0,10)+'.json',blob=new Blob([JSON.stringify(data)],{type:'application/json'}),file=new File([blob],name,{type:'application/json'});
 try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Cópia KeepRun'});return}}catch(e){if(e.name==='AbortError')return}
-const u=URL.createObjectURL(blob),l=document.createElement('a');l.href=u;l.download=name;l.click();toast('Cópia exportada')};
+const u=URL.createObjectURL(blob),l=document.createElement('a');l.href=u;l.download=name;l.click();setTimeout(()=>URL.revokeObjectURL(u),1000);toast('Cópia exportada')};
 $('#bk-im').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
 try{const d=JSON.parse(await f.text());if(d.app!=='KeepRun'||!Array.isArray(d.acts))throw 0;
 const ids=new Set(acts.map(a=>String(a.id)));let n=0;for(const a of d.acts){const c=cleanAct(a);if(c&&!ids.has(String(c.id))){acts.push(c);ids.add(String(c.id));n++}}
