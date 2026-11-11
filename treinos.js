@@ -132,7 +132,138 @@ tm=setInterval(()=>{if(pause)return;const t=sched(),k=idxAt(t);if(k!==i)return s
 set(0)}
 // ---------- interface ----------
 let sel='Sugestões',pos=null;
-const wcard=(w,i)=>`<div class="card wc" data-i="${i}"><div class="top"><span class="badge">${ic(w.sport)}</span><div><b>${esc(w.name)}</b><div class="mu">${esc(w.sport)} · ${w.dur} min</div></div></div><div class="mu">${esc(w.why)}</div></div>`;
+const wcard=(w,i)=>`<div class="card wc" data-i="${i}"><div class="top"><span class="badge">${ic(w.sport)}</span><div><b>${esc(w.name)}</b><div class="mu">${esc(w.sport)} · ${w.dur} min · ~${estKcal(w)} kcal</div></div></div><div class="mu">${esc(w.why)}</div></div>`;
+// ---------- MyFitnessPal (screenshot OCR + plano de treino nutricional) ----------
+const estKcal=w=>Math.round(w.steps.reduce((s,x)=>{const z=x.z||'',r=/máximo|forte|rápido/.test(z)?10.5:/moderado|fácil/.test(z)?7.8:['Yoga','Mobilidade','Alongamentos'].includes(w.sport)?3.6:5.2;return s+(x.s/60)*r},0));
+const getMFP=()=>{try{const m=JSON.parse(ls('kr_mfp','null'));return m&&isFinite(+m.food)&&isFinite(+m.goal)?{food:Math.max(0,Math.round(+m.food)),goal:Math.max(800,Math.round(+m.goal)),carbs:Math.max(0,Math.round(+m.carbs||0)),protein:Math.max(0,Math.round(+m.protein||0)),fat:Math.max(0,Math.round(+m.fat||0)),meals:Array.isArray(m.meals)?m.meals.slice(0,6).map(x=>String(x).slice(0,50)):[],ts:+m.ts||Date.now()}:null}catch(e){return null}};
+const setMFP=m=>{ss('kr_mfp',m?JSON.stringify(m):'null');if(window.renderWO)renderWO();if(window.renderWP)renderWP()};
+function mfpInfo(){const m=getMFP();if(!m)return null;const c=ctx(),diff=m.food-m.goal,totM=(m.carbs*4+m.protein*4+m.fat*9)||1,cPct=Math.round(m.carbs*400/totM),pPct=Math.round(m.protein*400/totM),fPct=Math.max(0,100-cPct-pPct);
+  const L=lib(c.dur,c.nov,c.rn),byName=n=>L.find(w=>w.name===n);
+  if(diff>150){
+    const targetMin=Math.min(75,Math.max(25,Math.round(diff/8.5/5)*5));
+    const burnW=W('Queima Calórica MyFitnessPal','Corrida',`Ajustado para compensar o excedente de +${diff} kcal do teu registo alimentar.`,['veloc','base'],[wu(5),...rep(Math.max(4,Math.round((targetMin-10)/4)),120,60,'forte','fácil','Ritmo vivo para elevar o gasto energético.','Trote suave em movimento.'),cd(5)]);
+    return{m,diff,cPct,pPct,fPct,badge:'🔥 Excedente +'+diff+' kcal',title:`Excedente calórico (+${diff} kcal)`,
+      summary:`Registaste ${m.food} kcal (meta: ${m.goal} kcal). Tens energia extra disponível: sugerimos treinos de maior gasto calórico (~${targetMin} min) ou HIIT para equilibrar o balanço diário.`,
+      plan:[burnW,byName('HIIT 30/30'),byName('Corrida progressiva'),byName('Corpo inteiro')].filter(Boolean)}
+  }
+  if(diff<-300||m.food<1200){
+    return{m,diff,cPct,pPct,fPct,badge:'🛡️ Défice '+diff+' kcal',title:`Défice calórico (${m.food} / ${m.goal} kcal)`,
+      summary:`Estás ${Math.abs(diff)} kcal abaixo da meta. Para preservar massa muscular e evitar fadiga excessiva, recomendamos cardio leve (Zona 2), força controlada e mobilidade.`,
+      plan:[byName('Corrida de recuperação'),byName('Caminhada rápida'),strength(2)[0],byName('Yoga para relaxar')].filter(Boolean)}
+  }
+  if(m.carbs>=180||(cPct>=50&&m.food>=1600)){
+    return{m,diff,cPct,pPct,fPct,badge:'⚡ Hidratos altos ('+m.carbs+'g)',title:`Reservas de glicogénio altas (${m.carbs}g HC)`,
+      summary:`As tuas refeições têm ótimo aporte de hidratos (${m.carbs}g · ${cPct}%). É o combustível ideal para sessões intensas de velocidade, limiar ou subidas.`,
+      plan:[byName('Intervalos curtos'),byName('Treino de limiar'),byName('Repetições em subida'),byName('Sweet spot 3×10')].filter(Boolean)}
+  }
+  if(m.protein>=100||(pPct>=25&&m.food>=1400)){
+    return{m,diff,cPct,pPct,fPct,badge:'💪 Proteína alta ('+m.protein+'g)',title:`Foco em força e síntese muscular (${m.protein}g Prot)`,
+      summary:`Excelente suporte proteico (${m.protein}g · ${pPct}%). Aproveita para estimular força muscular, core e potência.`,
+      plan:[byName('Corpo inteiro'),byName('Pernas e core'),byName('Parte superior'),byName('EMOM 12')].filter(Boolean)}
+  }
+  return{m,diff,cPct,pPct,fPct,badge:'🥗 Nutrição equilibrada',title:`Balanço energético equilibrado (${m.food} / ${m.goal} kcal)`,
+    summary:`Refeições alinhadas com a tua meta diária (${m.carbs}g HC · ${m.protein}g Prot · ${m.fat}g Gord). Plano equilibrado de resistência, força e mobilidade.`,
+    plan:[byName('Corrida fácil'),byName('Fartlek'),byName('Corpo inteiro'),byName('Mobilidade de anca')].filter(Boolean)}
+}
+function parseMFPText(raw){
+  const txt=String(raw||'').replace(/\r/g,'\n'),cleanNum=s=>parseInt(String(s).replace(/[.,\s]/g,''),10);
+  let goal=0,food=0,carbs=0,protein=0,fat=0;const meals=[];
+  // 1) Tentar encontrar a equação clássica do MyFitnessPal: Meta - Alimentos + Exercício = Restantes
+  const nums=(txt.match(/\b\d{1,2}[.,]\d{3}\b|\b\d{1,4}\b/g)||[]).map(cleanNum).filter(n=>isFinite(n)&&n>=0&&n<=12000);
+  for(let i=0;i+3<nums.length;i++){
+    const G=nums[i],F=nums[i+1],E=nums[i+2],R=nums[i+3];
+    if(G>=1000&&G<=5500&&F>=100&&F<=8000&&E<=3500&&(Math.abs((G-F+E)-R)<=15||Math.abs(Math.abs(G-F+E)-R)<=15)){goal=G;food=F;break}
+  }
+  // 2) Refeições individuais (PT / EN)
+  const mealRx=[['Pequeno-almoço',/(?:pequeno[-\s]*almo[cç]o|caf[eé]\s*da\s*manh[aã]|breakfast)[^\d\n]{0,25}(\d[\d.,]*)/i],['Almoço',/(?:^|\n|\s)almo[cç]o|lunch[^\d\n]{0,25}(\d[\d.,]*)/i],['Jantar',/(?:jantar|dinner)[^\d\n]{0,25}(\d[\d.,]*)/i],['Lanches',/(?:lanches?|snacks?)[^\d\n]{0,25}(\d[\d.,]*)/i]];
+  let mealSum=0;
+  for(const [label,rx] of [['Pequeno-almoço',/(?:pequeno[-\s]*almo[cç]o|caf[eé]\s*da\s*manh[aã]|breakfast)[^\d\n]{0,30}(\d{2,4}(?:[.,]\d{3})?)/i],['Almoço',/(?:^|[\n\r\s])(?:almo[cç]o|lunch)[^\d\n]{0,30}(\d{2,4}(?:[.,]\d{3})?)/i],['Jantar',/(?:jantar|dinner)[^\d\n]{0,30}(\d{2,4}(?:[.,]\d{3})?)/i],['Lanches',/(?:lanches?|snacks?)[^\d\n]{0,30}(\d{2,4}(?:[.,]\d{3})?)/i]]){
+    const m=txt.match(rx);if(m){const v=cleanNum(m[1]);if(v>0&&v<4500){mealSum+=v;meals.push(`${label}: ${v} kcal`)}}
+  }
+  if(!food&&mealSum>0)food=mealSum;
+  // 3) Macros (Hidratos / Carbs, Proteína / Protein, Gordura / Fat) em gramas
+  const mCarb=txt.match(/(?:hidratos(?:\s*de\s*carbono)?|carboidratos|carbohydrates|carbs)[^\d\n]{0,35}(\d{1,4})\s*g\b/i)||txt.match(/(\d{1,4})\s*g\s*(?:hidratos|carboidratos|carbs|carbohydrates)/i);
+  const mProt=txt.match(/(?:prote[ií]nas?|protein)[^\d\n]{0,35}(\d{1,4})\s*g\b/i)||txt.match(/(\d{1,4})\s*g\s*(?:prote[ií]nas?|protein)/i);
+  const mFat=txt.match(/(?:gorduras?|l[ií]pidos|fat)[^\d\n]{0,35}(\d{1,4})\s*g\b/i)||txt.match(/(\d{1,4})\s*g\s*(?:gorduras?|l[ií]pidos|fat)/i);
+  if(mCarb)carbs=Math.min(1200,cleanNum(mCarb[1]));
+  if(mProt)protein=Math.min(600,cleanNum(mProt[1]));
+  if(mFat)fat=Math.min(500,cleanNum(mFat[1]));
+  // 4) Fallback de calorias / meta se ainda não encontrados
+  if(!goal){const mg=txt.match(/(?:meta|goal|objetivo)[^\d\n]{0,25}(\d{1,2}[.,]\d{3}|\d{3,4})/i);if(mg)goal=cleanNum(mg[1])}
+  if(!food){const mf=txt.match(/(?:alimentos|comida|food|total|consumid[oa]s?)[^\d\n]{0,25}(\d{1,2}[.,]\d{3}|\d{3,4})/i);if(mf)food=cleanNum(mf[1])}
+  if(!food&&(carbs||protein||fat))food=carbs*4+protein*4+fat*9;
+  if(!goal){const cands=nums.filter(n=>n>=1200&&n<=4500);goal=cands[0]||2000}
+  if(!food){const cands=nums.filter(n=>n>=200&&n<=5000&&n!==goal);food=cands[0]||1800}
+  if(!carbs&&!protein&&!fat&&food>0){carbs=Math.round(food*0.48/4);protein=Math.round(food*0.24/4);fat=Math.round(food*0.28/9)}
+  return{food:Math.max(100,Math.min(10000,food)),goal:Math.max(800,Math.min(8000,goal)),carbs,protein,fat,meals,ts:Date.now()}
+}
+let tessP=null;
+function loadTess(){if(window.Tesseract)return Promise.resolve(window.Tesseract);if(tessP)return tessP;
+  tessP=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.crossOrigin='anonymous';s.onload=()=>res(window.Tesseract);s.onerror=()=>rej(new Error('Sem ligação ao motor OCR'));document.head.appendChild(s)});return tessP}
+async function preprocessImg(file){
+  const url=URL.createObjectURL(file);
+  try{
+    const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url});
+    const sc=Math.min(2,Math.max(1,1400/Math.max(img.width,img.height,1))),w=Math.round(img.width*sc),h=Math.round(img.height*sc);
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d');cx.drawImage(img,0,0,w,h);
+    const id=cx.getImageData(0,0,w,h),d=id.data;let sum=0;
+    for(let i=0;i<d.length;i+=4)sum+=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    const dark=(sum/(d.length/4))<115;
+    for(let i=0;i<d.length;i+=4){let y=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];if(dark)y=255-y;y=Math.max(0,Math.min(255,(y-128)*1.35+128));d[i]=d[i+1]=d[i+2]=y}
+    cx.putImageData(id,0,0);return{dataUrl:url,ocrSource:cv.toDataURL('image/png')}
+  }catch(e){return{dataUrl:url,ocrSource:url}}
+}
+let mfpPreviewUrl='';
+window.openMFP=function(){
+  const g=G(),cur=getMFP()||{food:1950,goal:2000,carbs:220,protein:115,fat:65,meals:[]},inf=mfpInfo();
+  g.classList.add('on');
+  g.innerHTML=`<div class="gh"><b>🥗 MyFitnessPal → Plano de Treino</b><button class="btn" id="gx">Fechar</button></div>
+  <p class="mu">Anexa um screenshot do diário de refeições ou de macronutrientes do MyFitnessPal (ou ficheiro CSV). O KeepRun lê os dados da imagem e adapta os teus treinos ao teu estado energético.</p>
+  <div class="gb"><label class="btn pri" style="cursor:pointer">📸 Anexar screenshot MyFitnessPal<input id="mfp-f" type="file" accept="image/*,.csv,text/csv" hidden></label>${getMFP()?'<button class="btn" id="mfp-clr">Limpar dados</button>':''}</div>
+  <div id="mfp-st" class="mu" style="margin:6px 0"></div>
+  ${mfpPreviewUrl?`<div style="margin:8px 0;text-align:center"><img src="${esc(mfpPreviewUrl)}" alt="Screenshot MyFitnessPal" style="max-height:180px;max-width:100%;border-radius:10px;border:1px solid var(--bd)"></div>`:''}
+  <div class="card" style="margin-top:10px"><b>Dados nutricionais do dia</b><div class="mu" id="mfp-meals">${cur.meals&&cur.meals.length?'Refeições lidas: '+cur.meals.map(esc).join(' · '):'Podes anexar um screenshot acima ou ajustar os valores abaixo:'}</div>
+  <div class="row" style="margin-top:8px">
+    <div><label class="lb" style="margin-top:4px">Consumido (kcal)</label><input id="mfp-food" type="number" min="0" max="12000" value="${cur.food}" style="width:100%"></div>
+    <div><label class="lb" style="margin-top:4px">Meta (kcal)</label><input id="mfp-goal" type="number" min="800" max="8000" value="${cur.goal}" style="width:100%"></div>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <div><label class="lb" style="margin-top:4px">Hidratos (g)</label><input id="mfp-c" type="number" min="0" max="1200" value="${cur.carbs}" style="width:100%"></div>
+    <div><label class="lb" style="margin-top:4px">Proteína (g)</label><input id="mfp-p" type="number" min="0" max="600" value="${cur.protein}" style="width:100%"></div>
+    <div><label class="lb" style="margin-top:4px">Gordura (g)</label><input id="mfp-fat" type="number" min="0" max="500" value="${cur.fat}" style="width:100%"></div>
+  </div>
+  <div class="gb" style="margin-bottom:0"><button class="btn pri" id="mfp-save">Gerar plano de exercícios</button></div></div>
+  ${inf?`<div class="card"><b>${esc(inf.title)}</b><p class="mu">${esc(inf.summary)}</p>
+  <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:8px 0"><div style="width:${inf.cPct}%;background:#3b82f6" title="Hidratos"></div><div style="width:${inf.pPct}%;background:#10b981" title="Proteína"></div><div style="width:${inf.fPct}%;background:#f59e0b" title="Gordura"></div></div>
+  <div class="mu" style="margin-bottom:10px">🔵 Hidratos ${inf.cPct}% (${inf.m.carbs}g) · 🟢 Proteína ${inf.pPct}% (${inf.m.protein}g) · 🟡 Gordura ${inf.fPct}% (${inf.m.fat}g)</div>
+  <b>Plano de exercícios recomendado:</b><div style="margin-top:8px">${inf.plan.map((w,i)=>`<div class="card wc mfp-w" data-i="${i}" style="background:var(--bg)"><div class="top"><span class="badge">${ic(w.sport)}</span><div><b>${esc(w.name)}</b><div class="mu">${esc(w.sport)} · ${w.dur} min · ~${estKcal(w)} kcal</div></div></div><div class="mu">${esc(w.why)}</div></div>`).join('')}</div></div>`:''}`;
+  const q=s=>g.querySelector(s);
+  q('#gx').onclick=()=>g.classList.remove('on');
+  if(q('#mfp-clr'))q('#mfp-clr').onclick=()=>{mfpPreviewUrl='';setMFP(null);openMFP();toast('Dados MyFitnessPal removidos')};
+  q('#mfp-save').onclick=()=>{
+    const m={food:Math.max(0,+q('#mfp-food').value||0),goal:Math.max(800,+q('#mfp-goal').value||2000),carbs:Math.max(0,+q('#mfp-c').value||0),protein:Math.max(0,+q('#mfp-p').value||0),fat:Math.max(0,+q('#mfp-fat').value||0),meals:(getMFP()||{}).meals||[],ts:Date.now()};
+    setMFP(m);openMFP();toast('Plano de treino atualizado!')
+  };
+  if(inf)g.querySelectorAll('.mfp-w').forEach(e=>e.onclick=()=>openW(inf.plan[+e.dataset.i]));
+  q('#mfp-f').onchange=async e=>{
+    const f=e.target.files[0];e.target.value='';if(!f)return;
+    const st=q('#mfp-st');
+    if(/\.csv$/i.test(f.name)||f.type==='text/csv'){
+      try{const parsed=parseMFPText(await f.text());setMFP(parsed);openMFP();toast('CSV do MyFitnessPal analisado!')}catch(x){toast('Erro ao ler CSV')}
+      return;
+    }
+    st.textContent='⏳ A analisar o screenshot do MyFitnessPal…';
+    try{
+      const {dataUrl,ocrSource}=await preprocessImg(f);mfpPreviewUrl=dataUrl;
+      const T=await loadTess();
+      const res=await T.recognize(ocrSource,'por+eng',{logger:m=>{if(m.status==='recognizing text'&&st)st.textContent=`⏳ A ler dados da imagem (${Math.round((m.progress||0)*100)}%)…`}});
+      const parsed=parseMFPText(res&&res.data&&res.data.text?res.data.text:'');
+      setMFP(parsed);openMFP();toast('Screenshot analisado! Plano de treino gerado.')
+    }catch(err){
+      openMFP();const st2=g.querySelector('#mfp-st');if(st2)st2.textContent='⚠️ Sem ligação ao motor OCR automático: confirma ou introduz os valores da imagem abaixo.';
+    }
+  };
+};
 function routes(){const c=ctx(),b=AL[sel]||sel,ty=['Corrida','Bicicleta','Caminhada'].includes(b)?b:c.fav,out=[];
 acts.filter(a=>(AL[a.type]||a.type)===ty&&a.pts&&a.pts.length>1).slice(0,8).forEach(a=>out.push({t:a.name,d:a.dist,src:'Tu',pts:a.pts,a}));
 (window.KR_fa?KR_fa():[]).filter(x=>(AL[x.type]||x.type)===ty&&x.r&&x.r.length>3).forEach(x=>{const p=[];for(let i=0;i+1<x.r.length;i+=2)p.push([x.r[i],x.r[i+1]]);out.push({t:x.title,d:x.dist,src:x.fname,pts:p})});
@@ -147,21 +278,23 @@ function renderRoutes(){const el=$('#wr');if(!el)return;const {ty,out}=routes();
 el.innerHTML=`<p class="mu">Percursos de ${esc(ty.toLowerCase())} feitos por ti e pelos teus amigos. <button class="btn" id="wnear">Perto de mim</button></p>`+(out.length?out.map((o,i)=>`<div class="card wr" data-i="${i}">${thumb(o.pts)}<div><b>${esc(o.t)}</b><div class="mu">${(Number(o.d)/1000||0).toFixed(1)} km · ${esc(o.src)}${o.near!=null?' · a '+(o.near/1000).toFixed(1)+' km de ti':''}</div></div></div>`).join(''):'<p class="mu">Ainda não há percursos. Grava ou importa atividades, e os percursos dos amigos também aparecem aqui.</p>');
 el.querySelectorAll('.wr').forEach(e=>e.onclick=()=>{const o=out[+e.dataset.i];if(o.a)show(o.a);else openRoute(o)});
 $('#wnear').onclick=()=>{if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{pos=[p.coords.latitude,p.coords.longitude];renderRoutes()},()=>toast('Não consegui obter a localização'))}}
-window.renderWO=function(){const el=$('#wo');if(!el)return;const oldC=el.querySelector('#spc'),sx=oldC?oldC.scrollLeft:0,oy=window.scrollY;const c=ctx(),it=intent(),list=sel==='Sugestões'?picks(it):forSport(sel,c.dur,c.nov,c.rn);let dn=[];try{dn=JSON.parse(ls('kr_done','[]'))}catch(e){}
+window.renderWO=function(){const el=$('#wo');if(!el)return;const oldC=el.querySelector('#spc'),sx=oldC?oldC.scrollLeft:0,oy=window.scrollY;const c=ctx(),it=intent(),inf=mfpInfo(),baseList=sel==='Sugestões'?picks(it):forSport(sel,c.dur,c.nov,c.rn),list=(sel==='Sugestões'&&inf)?[...inf.plan,...baseList.filter(w=>!inf.plan.some(p=>p.name===w.name))].slice(0,6):baseList;let dn=[];try{dn=JSON.parse(ls('kr_done','[]'))}catch(e){}
 el.innerHTML=`<p><button class="btn" id="wb">← Voltar</button></p><div class="card"><b>Treinos para ti</b><p class="mu">${msg()}</p><div class="mu">A tua intenção:</div><div class="chips" style="margin:8px 0 0">${Object.keys(INT).map(k=>`<button class="chip ${k===it?'on':''}" data-in="${k}">${INT[k]}</button>`).join('')}</div></div>
+<div class="card"><div class="sh" style="margin-bottom:6px"><b>🥗 Nutrição (MyFitnessPal)</b><button class="btn pri" id="mfp-btn" style="padding:5px 10px;font-size:13px">📸 Anexar screenshot</button></div>${inf?`<div class="mu" style="margin-bottom:4px"><b style="color:var(--ac)">${esc(inf.title)}</b> — ${esc(inf.summary)}</div><div class="mu">🔵 HC ${inf.m.carbs}g (${inf.cPct}%) · 🟢 Prot ${inf.m.protein}g (${inf.pPct}%) · 🟡 Gord ${inf.m.fat}g (${inf.fPct}%)</div>`:`<p class="mu" style="margin:0">Anexa um screenshot dos teus meal logs do MyFitnessPal para receberes um plano de exercícios adaptado às tuas calorias e macronutrientes.</p>`}</div>
 <div class="chips" id="spc">${['Sugestões',...SPORTS].map(s=>`<button class="chip ${s===sel?'on':''}" data-sp="${esc(s)}">${esc(s)}</button>`).join('')}</div>
 <div id="wl">${list.map(wcard).join('')}</div><h3>Onde treinar</h3><div id="wr"></div>
 <h3>Treinos concluídos</h3>${dn.length?dn.slice(0,5).map(d=>`<div class="fr"><span>${ic(d.sport)} ${esc(d.name)}</span><span class="mu">${d.dur} min · ${new Date(d.date).toLocaleDateString('pt-PT')}</span></div>`).join(''):'<p class="mu">Ainda sem treinos concluídos.</p>'}
 <p style="margin-top:16px"><label><input type="checkbox" id="waud" ${ls('kr_audio','1')==='1'?'checked':''}> Sons (mudança de exercício e quilómetros gravados)</label></p>`;
 el.querySelector('#wb').onclick=()=>go('feed');
+el.querySelector('#mfp-btn').onclick=()=>openMFP();
 el.querySelectorAll('[data-in]').forEach(b=>b.onclick=()=>{ss('kr_intent',b.dataset.in);renderWO();renderWP()});
 el.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{sel=b.dataset.sp;renderWO()});
 el.querySelectorAll('.wc').forEach(e=>e.onclick=()=>openW(list[+e.dataset.i]));
 const spc=el.querySelector('#spc');if(oldC)spc.scrollLeft=sx;else{const on=spc.querySelector('.on');if(on)spc.scrollLeft=Math.max(0,on.offsetLeft-20)}window.scrollTo(0,oy);
 el.querySelector('#waud').onchange=e=>ss('kr_audio',e.target.checked?'1':'0');renderRoutes()};
-window.renderWP=function(){const el=$('#wp');if(!el)return;const p=picks(intent()).slice(0,3);
-el.innerHTML=`<div class="wpc"><div class="sh"><b>Treinos para ti</b><a id="wpall">Ver todos</a></div><div class="wph">${p.map((w,i)=>`<div class="wmini" data-i="${i}"><span>${ic(w.sport)}</span><b>${esc(w.name)}</b><small>${esc(w.sport)} · ${w.dur} min</small></div>`).join('')}</div></div>`;
-el.querySelector('#wpall').onclick=()=>go('wo');el.querySelectorAll('.wmini').forEach(e=>e.onclick=()=>openW(p[+e.dataset.i]))};
+window.renderWP=function(){const el=$('#wp');if(!el)return;const inf=mfpInfo(),p=(inf?inf.plan:picks(intent())).slice(0,3);
+el.innerHTML=`<div class="wpc"><div class="sh"><b>Treinos para ti</b><span><a id="wpmfp" style="margin-right:12px">${inf?esc(inf.badge):'📸 MyFitnessPal'}</a><a id="wpall">Ver todos</a></span></div>${inf?`<div class="mu" style="margin:-4px 0 8px;font-size:12px">${esc(inf.title)} · plano ajustado à tua nutrição</div>`:''}<div class="wph">${p.map((w,i)=>`<div class="wmini" data-i="${i}"><span>${ic(w.sport)}</span><b>${esc(w.name)}</b><small>${esc(w.sport)} · ${w.dur} min · ~${estKcal(w)} kcal</small></div>`).join('')}</div></div>`;
+el.querySelector('#wpmfp').onclick=()=>openMFP();el.querySelector('#wpall').onclick=()=>go('wo');el.querySelectorAll('.wmini').forEach(e=>e.onclick=()=>openW(p[+e.dataset.i]))};
 // avisos de áudio por quilómetro nas gravações
 let lk=0;setInterval(()=>{try{const s=$('#rstop');if(!s||s.classList.contains('hide')){lk=0;return}const c=calc(rp),km=Math.floor(c.dist/1000);
 if(km>lk){lk=km;chime('km')}}catch(e){}},3000);
@@ -208,5 +341,5 @@ g.innerHTML=`<div class="gh"><b>Política de privacidade</b><button class="btn" 
 g.querySelector('#gx').onclick=()=>g.classList.remove('on')};
 window.KR_IC=IC;
 window.animFor=animFor;window.ic=ic;window.KR_extra=a=>(a.eff?`<div class="mu" style="margin:-4px 0 12px">💪 Esforço ${+a.eff}/10 · ${EFF(+a.eff)}${a.workout?' · '+esc(a.workout):''}</div>`:'')+(a.desc?`<p style="margin:0 0 12px">${esc(a.desc)}</p>`:'');
-window.KRW={lib,picks,forSport,SPORTS};renderWP();if(window.renderCards)renderCards();
+window.KRW={lib,picks,forSport,SPORTS,parseMFPText,mfpInfo,openMFP};renderWP();if(window.renderCards)renderCards();
 })();

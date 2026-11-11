@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="KeepRun">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.googleusercontent.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.gstatic.com https://cdnjs.cloudflare.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'">
 <title>KeepRun</title>
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" onerror="this.onerror=null;this.integrity='sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==';this.crossOrigin='anonymous';this.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'">
 <style>
@@ -319,7 +319,7 @@ if(!t&&!d)throw new Error('TCX sem dados');return{id:Date.now()+Math.random(),na
 function recalcElev(a){if(!a.pts||a.pts.length<2)return a.elev||0;const nz=a.pts.some(p=>p[2]!=null&&p[2]!==0);
 a.pts=a.pts.map(p=>[p[0],p[1],(nz&&p[2]===0)?null:p[2],p[3]]);a.elev=calc(a.pts).elev;return a.elev}
 loaded.then(()=>{if(ls('kr_mig1','')==='1')return;let n=0;acts.forEach(a=>{const o=a.elev||0;recalcElev(a);if(Math.abs((a.elev||0)-o)>1)n++});ss('kr_mig1','1');if(n){save();renderList();toast(`Corrigi a subida de ${n} atividade${n>1?'s':''}`)}});
-const BKEYS=['kr_name','kr_goal','kr_intent','kr_share','kr_audio','kr_pz'];
+const BKEYS=['kr_name','kr_goal','kr_intent','kr_share','kr_audio','kr_pz','kr_mfp'];
 const BK='<div class="card"><b>Cópia de segurança</b><p class="mu">Guarda todas as tuas atividades e definições num ficheiro, ou restaura-as a partir de uma cópia.</p><button class="btn" id="bk-ex">Exportar tudo</button> <label class="btn">Importar cópia<input id="bk-im" type="file" accept=".json,application/json" hidden></label> <button class="btn" id="pv">Política de privacidade</button></div>';
 function cleanAct(a){if(!a||typeof a!=='object'||!Array.isArray(a.pts))return null;const n=x=>isFinite(+x)?+x:0;
 const pts=a.pts.slice(0,20000).filter(p=>Array.isArray(p)&&p[0]!=null&&p[1]!=null&&p[0]!==''&&p[1]!==''&&isFinite(+p[0])&&isFinite(+p[1])&&Math.abs(+p[0])<=90&&Math.abs(+p[1])<=180).map(p=>[+p[0],+p[1],p[2]==null||!isFinite(+p[2])?null:+p[2],n(p[3])]);
@@ -340,6 +340,7 @@ if(k==='kr_pz'){try{const z=JSON.parse(v);if(z&&isFinite(z.lat)&&isFinite(z.lon)
 else if(k==='kr_goal'){const g=+v;if(isFinite(g)&&g>0&&g<=10000){goal=g;ss(k,String(g))}}
 else if(k==='kr_intent'){if(['base','veloc','recup','forca','diversao'].includes(v))ss(k,v)}
 else if(k==='kr_share'||k==='kr_audio'){if(v==='0'||v==='1')ss(k,v)}
+else if(k==='kr_mfp'){try{const m=JSON.parse(v);if(m&&isFinite(+m.food)&&isFinite(+m.goal))ss(k,v)}catch(x){}}
 else if(k==='kr_name'){ss(k,v.slice(0,30))}});
 save();renderList();hello();toast(n+' atividade'+(n===1?'':'s')+' importada'+(n===1?'':'s'))}catch(x){alert('Ficheiro inválido.')}};
 $('#pv').onclick=()=>window.KR_policy&&KR_policy()}
