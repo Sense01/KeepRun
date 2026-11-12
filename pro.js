@@ -1,7 +1,6 @@
 // KeepRun Pro: Funcionalidades completas de assinatura Strava (Segmentos & Live Segments, Fitness & Freshness, Esforço Relativo, GAP, Zonas, Registo de Treino, Atividades Comparáveis, Objetivos, Planos de Treino, Recover Athletics, Heatmap Pessoal, Criador de Rotas, Mapas Offline, Beacon e Meteorologia).
 (()=>{
 const R=Math.PI/180;
-const num=x=>{x=Number(x);return isFinite(x)?x:0};
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const getJSON=(k,d)=>{try{const v=JSON.parse(ls(k,'null'));return v==null?d:v}catch(e){return d}};
 const setJSON=(k,v)=>ss(k,JSON.stringify(v));
@@ -19,7 +18,9 @@ function gradeFactor(g){
 
 // Calcula métricas detalhadas de uma atividade: GAP, Potência (W), FC média, Esforço Relativo, Zonas de Ritmo e Zonas de FC, e Voltas detalhadas
 function analyzeAct(a){
-  const prof=getProf(),sp=(a.type||'Corrida'),isBike=/Bicicleta|Ciclismo|Spinning/i.test(sp),isRun=/Corrida|Trail|Passadeira|Caminhada|Hiking/i.test(sp);
+  const prof=getProf(),ck=`${prof.kg}|${prof.maxHr}|${prof.ftp}|${a.dist}|${a.dur}|${a.elev}|${a.eff}|${a.pts?a.pts.length:0}`;
+  if(a._pro&&a._proKey===ck)return a._pro;
+  const sp=(a.type||'Corrida'),isBike=/Bicicleta|Ciclismo|Spinning/i.test(sp),isRun=/Corrida|Trail|Passadeira|Caminhada|Hiking/i.test(sp);
   const dur=Math.max(1,+a.dur||0),dist=Math.max(0,+a.dist||0),elev=Math.max(0,+a.elev||0),eff=clamp(+a.eff||5,1,10);
   const basePace=dist>50?dur/(dist/1000):330; // s/km
   let eqDist=dist,sumW=0,wTime=0;
@@ -86,7 +87,8 @@ function analyzeAct(a){
   const relEffort=Math.max(1,Math.round((dur/60)*intensityFactor*2.35*(1+elev/1500)));
 
   const totZ=pZones.reduce((s,x)=>s+x,0)||1,totH=hrZones.reduce((s,x)=>s+x,0)||1;
-  return{
+  a._proKey=ck;
+  return a._pro={
     gapPace,
     gapStr:gapPace>0?fT(gapPace)+'/km':'--',
     avgW,
@@ -347,8 +349,6 @@ async function enhanceDetail(a){
   </div>`:''}`;
 
   d.appendChild(box);
-  const spOld=d.querySelector('#sp');if(spOld&&m.splits.length){const h4=spOld.previousElementSibling;if(h4&&h4.tagName==='H4')h4.classList.add('hide');spOld.classList.add('hide')}
-
   box.querySelectorAll('[data-seg]').forEach(el=>el.onclick=()=>openSegmentModal(segs[+el.dataset.seg].seg));
   const mkBtn=box.querySelector('#kr-mk-seg');
   if(mkBtn)mkBtn.onclick=()=>{
@@ -547,14 +547,20 @@ function setupRecPro(){
   };
 }
 
-// Monitorização em tempo real de Live Segments durante a gravação GPS
+// Monitorização em tempo real de Live Segments durante a gravação GPS (com cache de RP)
+let prCacheActs=-1,prCacheMap={};
+function getCachedSegPr(target){
+  if(prCacheActs!==acts.length){prCacheActs=acts.length;prCacheMap={}}
+  if(prCacheMap[target.id]==null){const e=getSegEfforts(target,'mine');prCacheMap[target.id]=e.length?e[0].time:Math.round(target.dist*0.30)}
+  return prCacheMap[target.id];
+}
 setInterval(()=>{
   const stopBtn=document.querySelector('#rstop'),liveBox=document.querySelector('#kr-live-seg');
   if(!stopBtn||stopBtn.classList.contains('hide')||!liveBox||!window.rp||rp.length<2){if(liveBox)liveBox.classList.add('hide');return}
   const c=calc(rp),curD=c.dist,curT=(Date.now()-t0)/1000;
   // Verifica Live Segment de 400m, 1km ou 5km em curso
   const target=curD<400?DEFAULT_SEGS[0]:curD<1000?DEFAULT_SEGS[1]:DEFAULT_SEGS[2];
-  const myEffs=getSegEfforts(target,'mine'),pr=myEffs.length?myEffs[0].time:Math.round(target.dist*0.30);
+  const pr=getCachedSegPr(target);
   const rem=Math.max(0,target.dist-(curD%target.dist)),progInSeg=target.dist-rem;
   const expT=pr*(progInSeg/target.dist),segElapsed=curT*(progInSeg/Math.max(1,curD)),delta=Math.round(segElapsed-expT);
   liveBox.classList.remove('hide');
@@ -581,12 +587,15 @@ function enhanceStats(){
     ptsForm.push(`${px},${py(x.form)}`);
   });
 
-  // Registo de Treino (Training Log - últimas 4 semanas com bolhas diárias)
+  // Registo de Treino (Training Log - últimas 4 semanas com bolhas diárias, seguro para mudança de hora DST)
   const w0=wkStart(),logWeeks=[];
   for(let w=0;w<4;w++){
-    const ws=w0-w*7*864e5,days=[];let wkKm=0,wkDur=0,wkRe=0;
+    const wsDate=new Date(w0);wsDate.setDate(wsDate.getDate()-w*7);wsDate.setHours(0,0,0,0);
+    const ws=wsDate.getTime(),days=[];let wkKm=0,wkDur=0,wkRe=0;
     for(let d=0;d<7;d++){
-      const d0=ws+d*864e5,d1=d0+864e5,da=acts.filter(a=>a.date>=d0&&a.date<d1);
+      const dStart=new Date(ws);dStart.setDate(dStart.getDate()+d);dStart.setHours(0,0,0,0);
+      const dEnd=new Date(dStart);dEnd.setDate(dEnd.getDate()+1);
+      const d0=dStart.getTime(),d1=dEnd.getTime(),da=acts.filter(a=>a.date>=d0&&a.date<d1);
       const km=da.reduce((q,a)=>q+a.dist,0)/1000,dur=da.reduce((q,a)=>q+a.dur,0),re=da.reduce((q,a)=>q+analyzeAct(a).relEffort,0);
       wkKm+=km;wkDur+=dur;wkRe+=re;
       days.push({d:'STQQSSD'[d],km,dur,re,sp:da[0]?.type||''});
@@ -899,7 +908,6 @@ function mapStravaSport(s){
 function importStravaCSV(csvText){
   const lines=String(csvText||'').replace(/\r/g,'\n').split('\n').map(l=>l.trim()).filter(Boolean);
   if(lines.length<2)throw new Error('Ficheiro CSV vazio');
-  const splitCSV=l=>{const o=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){o.push(c.trim());c=''}else c+=ch}o.push(c.trim());return o};
   const hdr=splitCSV(lines[0]).map(h=>h.toLowerCase());
   const iName=hdr.findIndex(h=>/activity name|nome da atividade|title|name/.test(h));
   const iType=hdr.findIndex(h=>/activity type|tipo de atividade|sport|type/.test(h));

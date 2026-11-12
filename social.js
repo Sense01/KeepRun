@@ -5,7 +5,6 @@ let GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut,deleteUser,cre
 let doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit;
 const key=a=>String(a.cloudKey||a.id).replace(/[./]/g,'_');
 const uname=()=>user?(user.displayName||(user.email||'Atleta').split('@')[0]):'Atleta';
-const num=x=>{x=Number(x);return isFinite(x)?x:0};
 const pz=()=>{try{const z=JSON.parse(ls('kr_pz','null'));return z&&isFinite(z.lat)&&isFinite(z.lon)&&z.r>0?z:null}catch(e){return null}};
 const mapOK=a=>a.showMap!==false;
 const zh=()=>{const z=pz();return z?Math.round(z.lat*1e4)+','+Math.round(z.lon*1e4)+','+z.r:'0'};
@@ -26,7 +25,7 @@ async function onUser(u){
   unsubs.forEach(f=>f());unsubs=[];friends=[];inc=[];FA=[];user=u;code='';for(const k in MY)delete MY[k];
   if(u){
     if(ls('kr_wipe_'+u.uid,'')==='1'){ss('kr_wipe_'+u.uid,'');try{await deleteUser(u);toast('Dados e conta apagados')}catch(e){await signOut(auth)}renderAll();return}
-    const prev=ls('kr_uid','');if(prev&&prev!==u.uid){ss('kr_share','0');ss('kr_name',uname().split(' ')[0])}
+    const prev=ls('kr_uid','');if(prev&&prev!==u.uid){ss('kr_share','0');ss('kr_name',uname().split(' ')[0]);ss('kr_strava_tok','');ss('kr_gemini_key','')}
     ss('kr_uid',u.uid);
     try{await ensureUser();listen()}catch(e){toast('Erro ao preparar a conta')}
     if(ls('kr_name','')==='')ss('kr_name',uname().split(' ')[0]);hello()}
@@ -85,16 +84,17 @@ function listen(){
     s.docs.forEach(async d=>{const r=d.data();try{const u=await getDoc(doc(db,'users',r.to));
       await setDoc(doc(db,'users',me,'friends',r.to),{name:String((u.data()||{}).name||'Amigo').slice(0,60),t:Date.now()});await deleteDoc(d.ref)}catch(e){}})}));
 }
+let lastFA=0;
 async function loadFA(){
-  if(!user)return;const out=[];
-  for(const f of friends){try{const s=await getDocs(query(collection(db,'activities',f.id,'items'),orderBy('date','desc'),limit(5)));
-    s.docs.forEach(d=>out.push({...d.data(),fname:f.name,owner:f.id,aid:d.id}))}catch(e){}}
+  if(!user)return;lastFA=Date.now();const out=[];
+  await Promise.all(friends.map(async f=>{try{const s=await getDocs(query(collection(db,'activities',f.id,'items'),orderBy('date','desc'),limit(5)));
+    s.docs.forEach(d=>out.push({...d.data(),fname:f.name,owner:f.id,aid:d.id}))}catch(e){}}));
   FA=out.sort((a,b)=>num(b.date)-num(a.date)).slice(0,12);renderFF();
   await Promise.all(FA.map(async p=>{p.soc=await loadSoc(p.owner,p.aid)}));renderFF();loadMine();
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user){loadFA();doSync()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user){if(Date.now()-lastFA>60000)loadFA();doSync()}});
 addEventListener('online',()=>{if(user)doSync()});
-setInterval(()=>{if(user&&!document.hidden)loadFA()},300000);
+setInterval(()=>{if(user&&!document.hidden)loadFA()},600000);
 
 // ---- Keeps (gostos) e comentários partilhados (só entre amigos) ----
 const getLocalKeeps=()=>{try{return JSON.parse(ls('kr_keeps','{}'))||{}}catch(e){return{}}};
@@ -105,10 +105,8 @@ async function loadSoc(owner,aid){let k=[],c=[];
   try{const s=await getDocs(query(collection(db,'activities',owner,'items',aid,'comments'),orderBy('t'),limit(20)));c=s.docs.map(d=>({id:d.id,uid:String(d.data().uid||''),name:String(d.data().name||'Amigo').slice(0,60),text:String(d.data().text||'').slice(0,200),t:num(d.data().t)}))}catch(e){}
   return{k,c}}
 async function loadMine(){if(!user||state!=='ready')return;
-  for(const a of acts.filter(x=>x.share!==false&&ls('kr_share','1')==='1').slice().sort((x,y)=>y.date-x.date).slice(0,10)){
-    const s=await loadSoc(user.uid,key(a));MY[key(a)]=s;
-    if(s.k.some(x=>x.uid===user.uid))a.k=true;
-  }
+  const mine=acts.filter(x=>x.share!==false&&ls('kr_share','1')==='1').slice().sort((x,y)=>y.date-x.date).slice(0,10);
+  await Promise.all(mine.map(async a=>{const s=await loadSoc(user.uid,key(a));MY[key(a)]=s;if(s.k.some(x=>x.uid===user.uid))a.k=true}));
   if(window.renderCards)renderCards();renderBell()}
 window.KR_socData=a=>{const m=(user&&MY[key(a)])||{k:[],c:[]};return{k:m.k,c:m.c,mine:!!(user&&m.k.some(x=>x.uid===user.uid))}};
 window.KR_keep=(a,on)=>{
@@ -157,9 +155,10 @@ function route(p){const z=pz();let d=0;const cum=[0];for(let i=1;i<p.length;i++)
   q.forEach((x,i)=>{if(i%st===0)r.push(+x[0].toFixed(4),+x[1].toFixed(4))});return r.slice(0,160)}
 const pack=a=>({title:String(a.name).slice(0,80),type:String(a.type).slice(0,40),date:num(a.date),dist:Math.round(num(a.dist)),dur:Math.round(num(a.dur)),elev:Math.round(num(a.elev)),r:mapOK(a)&&a.pts?route(a.pts):[],eff:Math.round(num(a.eff)),desc:String(a.desc||'').slice(0,300)});
 window.KR_del=a=>{if(!user)return;const dk='kr_del_'+user.uid;let del=[];try{del=JSON.parse(ls(dk,'[]'))}catch(e){}const k=key(a);if(!del.includes(k)){del.push(k);ss(dk,JSON.stringify(del.slice(-200)))}};
-let syncT;window.KR_sync=()=>{clearTimeout(syncT);syncT=setTimeout(()=>doSync(false),250)};
+let syncT,syncing=false;window.KR_sync=()=>{clearTimeout(syncT);syncT=setTimeout(()=>doSync(false),250)};
 async function doSync(manual){
-  if(state!=='ready'||!user)return;
+  if(syncing||state!=='ready'||!user)return;
+  syncing=true;
   if(window.KR_loaded)await window.KR_loaded;
   const sk='kr_synced_'+user.uid,dk='kr_del_'+user.uid;
   let old=[],del=[];try{old=JSON.parse(ls(sk,'[]'))}catch(e){}try{del=JSON.parse(ls(dk,'[]'))}catch(e){}
@@ -186,7 +185,7 @@ async function doSync(manual){
     if(del.length)ss(dk,'[]');
     ss(sk,JSON.stringify([...wS]));
     if(manual)toast(pulled?`Sincronizado! ${pulled} atividade(s) recebida(s) da nuvem.`:'Atividades sincronizadas com a nuvem!');
-  }catch(e){if(manual)toast('Erro ao sincronizar')}
+  }catch(e){if(manual)toast('Erro ao sincronizar')}finally{syncing=false}
 }
 // ---- ações ----
 const errMsg=e=>({'auth/invalid-credential':'Email ou palavra-passe errados','auth/email-already-in-use':'Esse email já tem conta','auth/weak-password':'Palavra-passe fraca (mínimo 6)','auth/invalid-email':'Email inválido','auth/operation-not-allowed':'Este método de entrada não está ativo no Firebase'}[e.code]||('Falha: '+(e.code||'erro')));
@@ -213,7 +212,7 @@ async function wipe(){
     for(const f of friends){await deleteDoc(doc(db,'users',me,'friends',f.id)).catch(()=>{});await deleteDoc(doc(db,'users',f.id,'friends',me)).catch(()=>{})}
     for(const k of ['from','to']){const rs=await getDocs(query(collection(db,'requests'),where(k,'==',me)));for(const d of rs.docs)await deleteDoc(d.ref)}
     if(code)await deleteDoc(doc(db,'codes',code)).catch(()=>{});
-    await deleteDoc(doc(db,'users',me)).catch(()=>{});ss('kr_synced_'+me,'[]');
+    await deleteDoc(doc(db,'users',me)).catch(()=>{});ss('kr_synced_'+me,'[]');ss('kr_strava_tok','');ss('kr_gemini_key','');
     try{await deleteUser(user);toast('Dados e conta apagados')}catch(e){ss('kr_wipe_'+me,'1');await signOut(auth);toast('Dados apagados. Entra de novo para concluir a eliminação da conta.')}
   }catch(e){toast('Erro ao apagar')}}
 // ---- interface ----
@@ -238,7 +237,7 @@ function renderAcct(){const el=$('#acct');if(!el)return;let h='';
   const q=x=>el.querySelector(x);
   if(q('#pv2'))q('#pv2').onclick=()=>window.KR_policy&&KR_policy();
   if(q('#gl')){q('#gl').onclick=login;q('#em-t').onclick=()=>q('#em').classList.toggle('hide');q('#em-in').onclick=()=>emailAuth('in');q('#em-new').onclick=()=>emailAuth('new');q('#em-rs').onclick=()=>emailAuth('reset')}
-  if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);q('#so').onclick=()=>signOut(auth);q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
+  if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);q('#so').onclick=()=>{ss('kr_strava_tok','');ss('kr_gemini_key','');signOut(auth)};q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
   bindZone(el)}
 function renderFriends(){const el=$('#friends');if(!el)return;
   const stravaCard=`<div class="card"><div class="sh" style="margin-bottom:6px"><b>🧡 Perfis Strava & Importação</b></div><p class="mu" style="margin:0 0 10px">Explora perfis de outros atletas no Strava, compara estatísticas frente-a-frente ou importa as tuas atividades do Strava.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="st-prof">👤 Ver Perfis do Strava</button><button class="btn" id="st-imp">📥 Importar do Strava</button></div></div>`;

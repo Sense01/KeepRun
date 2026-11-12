@@ -99,7 +99,7 @@ g.innerHTML=`<div class="gh"><b>Guardar atividade</b></div><p class="mu">${ic(w.
 <label class="lb">Descrição</label><textarea id="sf-d" rows="3" maxlength="300" placeholder="Como correu?" style="width:100%"></textarea>
 <label class="lb">Esforço percebido: <b id="sf-ev" style="color:var(--tx)">5</b>/10 · <span id="sf-el">Moderado</span></label><input id="sf-e" type="range" min="1" max="10" value="5" style="width:100%">
 <label class="lb">Visibilidade</label><label class="ck"><input type="checkbox" id="sf-s" ${ls('kr_share','1')==='1'?'checked':''}> Partilhar com amigos</label>
-${gps?`<label class="ck"><input type="checkbox" id="sf-m" ${hasZ?'checked':''}> Mostrar o percurso no mapa aos amigos</label>${hasZ?'':'<div class="mu">Define uma zona de privacidade em Eu para esconder a tua casa.</div>'}`:''}
+${gps?`<label class="ck"><input type="checkbox" id="sf-m" checked> Mostrar o percurso no mapa aos amigos</label>${hasZ?'':'<div class="mu">Define uma zona de privacidade em Eu para esconder a tua casa.</div>'}`:''}
 <div class="gb"><button class="btn pri" id="sf-ok">Guardar atividade</button> <button class="btn" id="sf-no">Descartar</button></div>`;
 const q=x=>g.querySelector(x);
 q('#sf-e').oninput=e=>{q('#sf-ev').textContent=e.target.value;q('#sf-el').textContent=EFF(+e.target.value)};
@@ -171,7 +171,6 @@ function parseMFPText(raw){
   // 0) Suporte para exportação CSV estruturada do MyFitnessPal (colunas Date, Meal, Calories, Fat (g), Carbohydrates (g), Protein (g))
   const lines=txt.split('\n').map(l=>l.trim()).filter(Boolean);
   if(lines.length>=2&&/,/.test(lines[0])&&/calor/i.test(lines[0])){
-    const splitCSV=l=>{const o=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){o.push(c.trim());c=''}else c+=ch}o.push(c.trim());return o};
     const hdr=splitCSV(lines[0]).map(h=>h.toLowerCase()),iCal=hdr.findIndex(h=>/calor/.test(h)),iCarb=hdr.findIndex(h=>/carb|hidrato/.test(h)),iProt=hdr.findIndex(h=>/prot/.test(h)),iFat=hdr.findIndex(h=>/^(fat|gordura|l[ií]pido)/.test(h)),iDate=hdr.findIndex(h=>/date|data/.test(h)),iMeal=hdr.findIndex(h=>/meal|refei/.test(h));
     if(iCal>=0){
       const rows=lines.slice(1).map(splitCSV).filter(r=>r.length>iCal&&isFinite(parseFloat(r[iCal])));
@@ -337,7 +336,7 @@ g.innerHTML=`<div class="gh"><b>Editar atividade</b></div><label class="lb">Tít
 <label class="lb">Descrição</label><textarea id="ed-d" rows="3" maxlength="300" style="width:100%">${esc(a.desc||'')}</textarea>
 <label class="lb">Esforço percebido: <b id="ed-ev" style="color:var(--tx)">${e0}</b>/10 · <span id="ed-el">${EFF(e0)}</span></label><input id="ed-e" type="range" min="1" max="10" value="${e0}" style="width:100%">
 <label class="lb">Visibilidade</label><label class="ck"><input type="checkbox" id="ed-s" ${a.share!==false?'checked':''}> Partilhar com amigos</label>
-${hasG?`<label class="ck"><input type="checkbox" id="ed-m" ${a.showMap===true||(a.showMap===undefined&&pzOn())?'checked':''}> Mostrar o percurso no mapa aos amigos</label><p><button class="btn" id="ed-r">Recalcular subida</button> <span class="mu" id="ed-rv"></span></p>`:''}
+${hasG?`<label class="ck"><input type="checkbox" id="ed-m" ${a.showMap!==false?'checked':''}> Mostrar o percurso no mapa aos amigos</label><p><button class="btn" id="ed-r">Recalcular subida</button> <span class="mu" id="ed-rv"></span></p>`:''}
 <div class="gb"><button class="btn pri" id="ed-ok">Guardar</button> <button class="btn" id="ed-no">Cancelar</button></div>`;
 const q=x=>g.querySelector(x);
 q('#ed-e').oninput=e=>{et=true;q('#ed-ev').textContent=e.target.value;q('#ed-el').textContent=EFF(+e.target.value)};
