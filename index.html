@@ -156,9 +156,10 @@ const ATTR='© <a href="https://www.openstreetmap.org/copyright" target="_blank"
 const idbP=new Promise(res=>{try{const r=indexedDB.open('keeprun',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);r.onblocked=()=>res(null)}catch(e){res(null)}});
 const idbGet=async k=>{const d=await idbP;if(!d)return;return new Promise(res=>{try{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res()}catch(e){res()}})};
 const idbSet=async(k,v)=>{const d=await idbP;if(!d)return false;return new Promise(res=>{try{const t=d.transaction('kv','readwrite');v==null?t.objectStore('kv').delete(k):t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>res(false);t.onabort=()=>res(false)}catch(e){res(false)}})};
-const loaded=(async()=>{const s=await idbGet('acts');if(Array.isArray(s)){const ids=new Set(acts.map(a=>a.id));let n=0;s.forEach(a=>{if(!ids.has(a.id)){acts.push(a);n++}});if(n&&window.renderList)renderList()}})();
+const loaded=window.KR_loaded=(async()=>{const s=await idbGet('acts');if(Array.isArray(s)){const ids=new Set(acts.map(a=>String(a.id)));let n=0;s.forEach(a=>{if(!ids.has(String(a.id))){acts.push(a);n++}});if(n&&window.renderList)renderList()}})();
 let warned=0;
-const save=()=>{window.KR_sync&&window.KR_sync();loaded.then(()=>idbSet('acts',acts)).then(ok=>{if(ok){try{localStorage.removeItem('keeprun')}catch(e){}if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}else{try{localStorage.setItem('keeprun',JSON.stringify(acts))}catch(e){if(!warned++)alert('Sem espaço para guardar. Exporta e apaga atividades antigas.')}}})};
+const saveLocal=window.KR_saveLocal=()=>loaded.then(()=>idbSet('acts',acts)).then(ok=>{if(ok){try{localStorage.removeItem('keeprun')}catch(e){}if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}else{try{localStorage.setItem('keeprun',JSON.stringify(acts))}catch(e){if(!warned++)alert('Sem espaço para guardar. Exporta e apaga atividades antigas.')}}});
+const save=()=>{saveLocal();window.KR_sync&&window.KR_sync()};
 const R=Math.PI/180;
 const hav=(a,b)=>{const dl=(b[0]-a[0])*R,dn=(b[1]-a[1])*R,x=Math.sin(dl/2)**2+Math.cos(a[0]*R)*Math.cos(b[0]*R)*Math.sin(dn/2)**2;return 12742000*Math.asin(Math.sqrt(x))};
 function calc(p){let d=0,g=0,ref=null;for(let i=0;i<p.length;i++){if(i)d+=hav(p[i-1],p[i]);const e=p[i][2];if(e==null||!isFinite(e))continue;if(ref==null)ref=e;else if(e-ref>=3){g+=e-ref;ref=e}else if(ref-e>=3)ref=e}
@@ -250,7 +251,7 @@ d.innerHTML=`<p><button class="btn" id="back">← Voltar</button></p><div class=
 ${hasG?'<h4>Altimetria</h4><canvas id="el" width="700" height="110"></canvas><h4>Parciais por km</h4><table id="sp"></table>':''}
 <p>${hasG?'<button class="btn" id="exp">Exportar GPX</button>':''} <button class="btn" id="ed">Editar</button> <button class="btn" id="del">Apagar</button></p></div>`;
 $('#back').onclick=()=>go('feed');
-$('#del').onclick=()=>{if(confirm('Apagar atividade?')){acts=acts.filter(x=>x!==a);save();renderList();go('feed')}};
+$('#del').onclick=()=>{if(confirm('Apagar atividade?')){window.KR_del&&window.KR_del(a);acts=acts.filter(x=>x!==a);save();renderList();go('feed')}};
 $('#ed').onclick=()=>window.KR_edit&&KR_edit(a);if(hasG)$('#exp').onclick=()=>exportGPX(a);
 if(hasG){if(!window.L)$('#map')&&($('#map').outerHTML='<p class="mu">Mapa indisponível sem ligação.</p>');else{if(map)map.remove();map=L.map('map');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(map);
 const ll=a.pts.map(p=>[p[0],p[1]]);const pl=L.polyline(ll,{color:'#fc4c02',weight:4}).addTo(map);map.fitBounds(pl.getBounds(),{padding:[20,20]})}

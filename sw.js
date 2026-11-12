@@ -1,5 +1,5 @@
 // Service worker: rede primeiro para os ficheiros da app, cache-primeiro para as bibliotecas externas fixas.
-const C = 'keeprun-v10';
+const C = 'keeprun-v11';
 const CORE = ['./', 'index.html', 'social.js', 'treinos.js', 'pro.js', 'anim.js', 'firebase-config.js', 'manifest.webmanifest', 'icon-192.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css'];
 const EXT = ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'];
 const CDN = ['cdnjs.cloudflare.com', 'www.gstatic.com', 'cdn.jsdelivr.net'];

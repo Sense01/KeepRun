@@ -340,7 +340,7 @@ const q=x=>g.querySelector(x);
 q('#ed-e').oninput=e=>{et=true;q('#ed-ev').textContent=e.target.value;q('#ed-el').textContent=EFF(+e.target.value)};
 if(hasG)q('#ed-r').onclick=()=>{const v=recalcElev(a);save();q('#ed-rv').textContent='Subida: '+Math.round(v)+' m'};
 q('#ed-no').onclick=()=>g.classList.remove('on');
-q('#ed-ok').onclick=()=>{a.name=(q('#ed-t').value.trim()||a.name).slice(0,80);a.desc=q('#ed-d').value.trim().slice(0,300);if(et)a.eff=+q('#ed-e').value;a.share=q('#ed-s').checked;if(hasG)a.showMap=q('#ed-m').checked;
+q('#ed-ok').onclick=()=>{a.name=(q('#ed-t').value.trim()||a.name).slice(0,80);a.desc=q('#ed-d').value.trim().slice(0,300);if(et)a.eff=+q('#ed-e').value;a.share=q('#ed-s').checked;if(hasG)a.showMap=q('#ed-m').checked;a.dirty=true;
 save();g.classList.remove('on');renderList();show(a);toast('Atividade atualizada')}};
 window.KR_policy=()=>{const g=G();g.classList.add('on');
 g.innerHTML=`<div class="gh"><b>Política de privacidade</b><button class="btn" id="gx">Fechar</button></div>
