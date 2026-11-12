@@ -1160,8 +1160,8 @@ window.openAICoach=function(){
   ];
 
   gm.innerHTML=`
-  <div style="display:flex;flex-direction:column;height:calc(100dvh - 40px);max-width:600px;margin:0 auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--bd)">
+  <div id="ai-wrap" style="position:fixed;inset:0;display:flex;flex-direction:column;width:100%;max-width:600px;height:100dvh;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));background:var(--bg);overflow:hidden;overscroll-behavior:none;touch-action:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--bd);flex:none">
       <div><b style="font-size:18px">Personal Trainer</b><div class="mu" style="font-size:12px">${s.wkKm.toFixed(1)}/${s.goalKm} km esta semana · ${s.ff.status}</div></div>
       <div style="display:flex;gap:6px">
         <button class="btn" id="ai-clr" style="padding:6px 10px;font-size:12px">Limpar</button>
@@ -1169,9 +1169,9 @@ window.openAICoach=function(){
       </div>
     </div>
 
-    <div id="ai-log" style="flex:1;overflow-y:auto;padding:14px 2px;display:flex;flex-direction:column;gap:10px">
+    <div id="ai-log" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding:14px 2px;display:flex;flex-direction:column;gap:10px">
       ${aiHistory.map((m,idx)=>`
-        <div style="align-self:${m.role==='user'?'flex-end':'flex-start'};max-width:86%;background:${m.role==='user'?'var(--ac)':'var(--card)'};color:#fff;border:${m.role==='user'?'0':'1px solid var(--bd)'};padding:11px 14px;border-radius:${m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:14px;line-height:1.45">
+        <div style="align-self:${m.role==='user'?'flex-end':'flex-start'};max-width:86%;background:${m.role==='user'?'var(--ac)':'var(--card)'};color:#fff;border:${m.role==='user'?'0':'1px solid var(--bd)'};padding:11px 14px;border-radius:${m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:14px;line-height:1.45;word-break:break-word">
           <div>${fmtMsg(m.text)}</div>
           ${m.workout?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:10px">
             <span style="font-size:13px"><b>${window.ic?ic(m.workout.sport):'🏃'} ${esc(m.workout.name)}</b> <span class="mu">(${m.workout.dur} min)</span></span>
@@ -1181,18 +1181,20 @@ window.openAICoach=function(){
       `).join('')}
     </div>
 
-    <div style="padding-top:8px;border-top:1px solid var(--bd)">
-      <div class="chips" style="margin-bottom:8px">${prompts.map(p=>`<button class="chip" data-ap="${esc(p)}" style="font-size:12px;padding:5px 11px">${esc(p)}</button>`).join('')}</div>
+    <div style="padding-top:8px;border-top:1px solid var(--bd);flex:none">
+      <div class="chips" style="margin-bottom:8px;touch-action:pan-x">${prompts.map(p=>`<button class="chip" data-ap="${esc(p)}" style="font-size:12px;padding:5px 11px">${esc(p)}</button>`).join('')}</div>
       <div style="display:flex;gap:8px">
-        <input id="ai-in" placeholder="Escreve uma mensagem..." style="flex:1;border-radius:20px;padding:9px 14px">
-        <button class="btn pri" id="ai-send" style="border-radius:20px;padding:9px 18px;font-weight:600">Enviar</button>
+        <input id="ai-in" placeholder="Escreve uma mensagem..." autocomplete="off" style="flex:1;min-width:0;font-size:16px;border-radius:20px;padding:9px 14px">
+        <button class="btn pri" id="ai-send" style="border-radius:20px;padding:9px 18px;font-weight:600;flex:none">Enviar</button>
       </div>
     </div>
   </div>`;
 
-  const q=s=>gm.querySelector(s),log=q('#ai-log');
+  const q=s=>gm.querySelector(s),log=q('#ai-log'),wrap=q('#ai-wrap');
+  const syncVV=()=>{if(!wrap||!window.visualViewport)return;wrap.style.height=visualViewport.height+'px';wrap.style.top=visualViewport.offsetTop+'px';window.scrollTo(0,0);if(log)log.scrollTop=log.scrollHeight};
+  if(window.visualViewport){visualViewport.onresize=syncVV;visualViewport.onscroll=syncVV;syncVV()}
   if(log)log.scrollTop=log.scrollHeight;
-  q('#gx').onclick=()=>gm.classList.remove('on');
+  q('#gx').onclick=()=>{if(window.visualViewport)visualViewport.onresize=visualViewport.onscroll=null;gm.classList.remove('on')};
   q('#ai-clr').onclick=()=>{aiHistory=[];setJSON('kr_ai_chat',[]);openAICoach()};
   const send=async txt=>{
     txt=(txt||'').trim();if(!txt)return;

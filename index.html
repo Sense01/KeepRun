@@ -107,9 +107,9 @@ main{margin:0 auto 0 200px;max-width:1000px}#amap{height:calc(100dvh - 120px)}}
 .cg span{padding:6px 0;border-radius:50%}.cg span.on{background:var(--ac)}
 @media(max-width:640px){#feed{margin:-12px -12px 0}.post,.car,.dots{border-radius:0}}
 .fr{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--bd)}
-html,body{touch-action:manipulation;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent;background:var(--bg)}
+html,body{touch-action:manipulation;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent;background:var(--bg);overflow-x:hidden}
 body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-input,select,textarea{font-size:16px;-webkit-user-select:text;user-select:text}
+input,select,textarea{font-size:16px!important;-webkit-user-select:text;user-select:text}
 </style>
 </head>
 <body>
@@ -340,7 +340,8 @@ else if(k==='kr_name'){ss(k,v.slice(0,30))}});
 save();renderList();renderStats();hello();toast(n+' atividade'+(n===1?'':'s')+' importada'+(n===1?'':'s'))}catch(x){alert('Ficheiro inválido.')}};
 $('#pv').onclick=()=>window.KR_policy&&KR_policy()}
 hello();renderList();
-['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
+['gesturestart','gesturechange','gestureend','dblclick'].forEach(t=>document.addEventListener(t,e=>{if(!e.target.closest?.('.leaflet-container'))e.preventDefault()},{passive:false}));
+document.addEventListener('touchmove',e=>{if((e.touches&&e.touches.length>1)||(e.scale&&e.scale!==1)){if(!e.target.closest?.('.leaflet-container'))e.preventDefault()}},{passive:false});
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 (()=>{const sp=$('#splash');let done=0;const end=()=>{if(done)return;done=1;sp.classList.add('out');setTimeout(()=>sp.remove(),700)};
 sp.onclick=end;setTimeout(end,2800)})();
