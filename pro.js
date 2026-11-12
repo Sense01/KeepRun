@@ -1,6 +1,7 @@
 // KeepRun Pro: Funcionalidades completas de assinatura Strava (Segmentos & Live Segments, Fitness & Freshness, Esforço Relativo, GAP, Zonas, Registo de Treino, Atividades Comparáveis, Objetivos, Planos de Treino, Recover Athletics, Heatmap Pessoal, Criador de Rotas, Mapas Offline, Beacon e Meteorologia).
 (()=>{
 const R=Math.PI/180;
+const num=x=>{x=Number(x);return isFinite(x)?x:0};
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const getJSON=(k,d)=>{try{const v=JSON.parse(ls(k,'null'));return v==null?d:v}catch(e){return d}};
 const setJSON=(k,v)=>ss(k,JSON.stringify(v));
@@ -646,19 +647,17 @@ function enhanceStats(){
     </div>
   </div>
   <div class="card">
-    <b>🧡 Integração Strava & 🤖 Personal Trainer AI</b>
-    <p class="mu" style="margin:6px 0 10px">Importa as tuas atividades do Strava, explora perfis de atletas do Strava ou fala com o teu Personal Trainer inteligente.</p>
+    <b>🧡 Integração Strava</b>
+    <p class="mu" style="margin:6px 0 10px">Importa as tuas atividades do Strava ou explora perfis de atletas do Strava.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn pri" id="kr-st-imp">📥 Importar do Strava</button>
       <button class="btn" id="kr-st-prf">👤 Perfis do Strava</button>
-      <button class="btn" id="kr-st-ai">🤖 Personal Trainer AI</button>
     </div>
   </div>`;
 
   s.appendChild(box);
   if(box.querySelector('#kr-st-imp'))box.querySelector('#kr-st-imp').onclick=()=>openStravaImport();
   if(box.querySelector('#kr-st-prf'))box.querySelector('#kr-st-prf').onclick=()=>openStravaProfiles();
-  if(box.querySelector('#kr-st-ai'))box.querySelector('#kr-st-ai').onclick=()=>openAICoach();
   box.querySelector('#kr-add-goal').onclick=()=>{
     const period=prompt('Período do objetivo (Semana, Mês ou Ano):','Mês')||'Mês';
     const sport=prompt('Desporto (Todos, Corrida, Bicicleta, Caminhada):','Todos')||'Todos';

@@ -241,12 +241,11 @@ function renderAcct(){const el=$('#acct');if(!el)return;let h='';
   if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);q('#so').onclick=()=>signOut(auth);q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
   bindZone(el)}
 function renderFriends(){const el=$('#friends');if(!el)return;
-  const stravaCard=`<div class="card"><div class="sh" style="margin-bottom:6px"><b>🧡 Perfis Strava & Importação</b></div><p class="mu" style="margin:0 0 10px">Explora perfis de outros atletas no Strava, compara estatísticas frente-a-frente ou importa as tuas atividades do Strava.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="st-prof">👤 Ver Perfis do Strava</button><button class="btn" id="st-imp">📥 Importar do Strava</button><button class="btn" id="st-ai">🤖 Personal Trainer AI</button></div></div>`;
+  const stravaCard=`<div class="card"><div class="sh" style="margin-bottom:6px"><b>🧡 Perfis Strava & Importação</b></div><p class="mu" style="margin:0 0 10px">Explora perfis de outros atletas no Strava, compara estatísticas frente-a-frente ou importa as tuas atividades do Strava.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="st-prof">👤 Ver Perfis do Strava</button><button class="btn" id="st-imp">📥 Importar do Strava</button></div></div>`;
   if(state!=='ready'||!user){
     el.innerHTML=stravaCard+(state==='nocfg'?'<div class="card"><b>Amigos KeepRun</b><p class="mu">Configura o Firebase (ver SETUP.md) para ativar contas e amigos.</p></div>':state==='offline'?'<div class="card"><b>Amigos KeepRun</b><p class="mu">Sem ligação: os amigos precisam de internet.</p></div>':state==='ready'?'<div class="card"><b>Amigos KeepRun</b><p class="mu">Entra com a tua conta (separador Eu) para adicionar amigos e ver as suas atividades.</p></div>':'');
     if(el.querySelector('#st-prof'))el.querySelector('#st-prof').onclick=()=>window.openStravaProfiles&&openStravaProfiles();
     if(el.querySelector('#st-imp'))el.querySelector('#st-imp').onclick=()=>window.openStravaImport&&openStravaImport();
-    if(el.querySelector('#st-ai'))el.querySelector('#st-ai').onclick=()=>window.openAICoach&&openAICoach();
     return;
   }
   el.innerHTML=stravaCard+`<div class="card"><b>Adicionar amigo KeepRun</b><p class="mu">O teu código: <b style="color:var(--tx)">${esc(code||'—')}</b> <button class="btn" id="cc">Copiar</button></p>
@@ -255,7 +254,6 @@ function renderFriends(){const el=$('#friends');if(!el)return;
   <div class="card"><b>Amigos (${friends.length})</b>${friends.length?friends.map((f,i)=>`<div class="fr"><span data-pf="${i}" style="cursor:pointer;font-weight:600;color:var(--ac)">👤 ${esc(f.name)} <small class="mu">(ver perfil)</small></span><button class="btn" data-r="${i}">Remover</button></div>`).join(''):'<p class="mu">Ainda sem amigos.</p>'}</div>`;
   if(el.querySelector('#st-prof'))el.querySelector('#st-prof').onclick=()=>window.openStravaProfiles&&openStravaProfiles();
   if(el.querySelector('#st-imp'))el.querySelector('#st-imp').onclick=()=>window.openStravaImport&&openStravaImport();
-  if(el.querySelector('#st-ai'))el.querySelector('#st-ai').onclick=()=>window.openAICoach&&openAICoach();
   $('#cc').onclick=()=>{try{navigator.clipboard.writeText(code)}catch(e){}toast('Código copiado')};
   $('#fa').onclick=()=>{addFriend($('#fc').value);$('#fc').value=''};
   el.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>accept(+b.dataset.a));
