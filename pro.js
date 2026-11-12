@@ -1078,29 +1078,35 @@ async function generateAIReply(userMsg){
   }
 
   // Respostas inteligentes especializadas baseadas na telemetria real do atleta
+  if(/comer|refei[cç]|aliment|jantar|almo[cç]o|pequeno[-\s]*almo[cç]o|pr[eé][-\s]*treino|p[oó]s[-\s]*treino|amanh[aã]|energia|hidrat/.test(q)&&!/emagrec|perder peso|d[eé]fice/.test(q)){
+    return{
+      text:`🍽️ **O que comer para treinares no teu melhor:**\n\n• **Na véspera (hoje ao jantar):** Dá prioridade a hidratos de carbono complexos para encheres o glicogénio muscular (arroz, massa, batata ou batata-doce) + uma fonte de proteína magra (frango, peixe, ovos ou tofu), evitando gorduras pesadas ou fritos.\n• **Antes do treino (1h30 a 2h antes):** Banana com papas de aveia ou pão torrado com mel/compota e café ou água.\n• **Após o treino:** 25–35 g de proteína + fruta ou arroz/pão para acelerar a recuperação muscular.`,
+      workout:findW('Corrida progressiva')
+    };
+  }
   if(/últim|ultima|analis/.test(q)){
-    if(!s.lastAct)return{text:'Ainda não tens atividades registadas para eu analisar. Grava a tua primeira corrida ou importa as tuas atividades do Strava para te dar uma análise biomecânica e fisiológica completa!',workout:findW('Caminhar e correr')};
+    if(!s.lastAct)return{text:'Ainda não tens atividades registadas. Grava uma corrida ou importa do Strava para eu analisar o teu ritmo e esforço!',workout:findW('Caminhar e correr')};
     const m=analyzeAct(s.lastAct);
     return{
-      text:`📊 **Análise da tua última atividade (${s.lastAct.name}):**\n• **Distância e Tempo:** ${(s.lastAct.dist/1000).toFixed(2)} km em ${fTL(s.lastAct.dur)} (Subida: ${Math.round(s.lastAct.elev)} m)\n• **Ritmo Ajustado à Inclinação (GAP):** ${m.gapStr}\n• **Esforço Relativo:** ${m.relEffort} pts · Potência média est.: ${m.avgW} W · FC média est.: ${m.avgHr} bpm\n• **Diagnóstico do Treinador:** ${m.relEffort>80?'Foi uma sessão exigente que gerou um forte estímulo aeróbico. Nas próximas 24h prioriza hidratação, proteína e um treino regenerativo.':'Bom treino controlado! Mantiveste a carga dentro da zona ideal para construir resistência sem acumular fadiga excessiva.'}`,
-      workout:m.relEffort>80?findW('Mobilidade de anca'):findW('Corrida progressiva')
+      text:`📊 **Último treino — ${s.lastAct.name}:**\n• **Resumo:** ${(s.lastAct.dist/1000).toFixed(2)} km em ${fTL(s.lastAct.dur)} · Subida ${Math.round(s.lastAct.elev)} m\n• **Ritmo Ajustado (GAP):** ${m.gapStr} · **Esforço Relativo:** ${m.relEffort} pts\n• **Feedback:** ${m.relEffort>80?'Sessão forte! Nas próximas 24h faz recuperação leve e hidrata bem.':'Treino bem controlado, ideal para construir resistência aeróbica.'}`,
+      workout:m.relEffort>80?findW('Mobilidade de anca'):findW('Corrida fácil')
     };
   }
   if(/previs|tempo|5\s*k|10\s*k|meia|maratona|ritmo de prova/.test(q)){
     return{
-      text:`⏱️ **Previsão Fisiológica dos Teus Tempos de Prova (Modelo de Riegel):**\nCom base no teu histórico na KeepRun${s.bestRun?` (melhor referência: ${(s.bestRun.dist/1000).toFixed(2)} km em ${fT(s.bestRun.dur)})`:''}:\n• **5 km:** ${s.pred5k} (${fP(5000,Math.round((s.bestRun?s.bestRun.dur:1500)*Math.pow(5000/(s.bestRun?s.bestRun.dist:5000),1.06)))})\n• **10 km:** ${s.pred10k}\n• **Meia Maratona (21,1 km):** ${s.predHm}\n• **Maratona (42,2 km):** ${s.predMar}\n\n💡 **Para baixares estes tempos:** inclui 1 sessão semanal de **Intervalos curtos** (VO2 máx) e 1 **Treino de limiar**.`,
+      text:`⏱️ **Estimativa atual dos teus tempos:**\n• **5 km:** ${s.pred5k}\n• **10 km:** ${s.pred10k}\n• **Meia Maratona:** ${s.predHm}\n• **Maratona:** ${s.predMar}\n\nPara baixares estes tempos, faz 1 treino semanal de intervalos curtos.`,
       workout:findW('Intervalos curtos')
     };
   }
-  if(/calor|nutri|myfitnesspal|comer|dieta|peso|emagrec/.test(q)){
+  if(/calor|nutri|myfitnesspal|dieta|peso|emagrec|d[eé]fice/.test(q)){
     if(s.mfp){
       return{
-        text:`🥗 **Plano Nutricional + Treino (MyFitnessPal):**\n• **Balanço atual:** ${s.mfp.m.food} kcal consumidas / meta ${s.mfp.m.goal} kcal (${s.mfp.diff>=0?'+'+s.mfp.diff:s.mfp.diff} kcal)\n• **Macros:** Hidratos ${s.mfp.m.carbs}g (${s.mfp.cPct}%) · Proteína ${s.mfp.m.protein}g (${s.mfp.pPct}%) · Gordura ${s.mfp.m.fat}g (${s.mfp.fPct}%)\n• **Recomendação do Personal Trainer:** ${s.mfp.summary}`,
+        text:`🥗 **Balanço MyFitnessPal:**\nConsumiste **${s.mfp.m.food} kcal** (meta: ${s.mfp.m.goal} kcal · ${s.mfp.m.carbs}g HC, ${s.mfp.m.protein}g Prot, ${s.mfp.m.fat}g Gord).\n${s.mfp.summary}`,
         workout:s.mfp.plan[0]||findW('HIIT 30/30')
       };
     }
     return{
-      text:`🥗 **Nutrição e Composição Corporal:**\nPara otimizar a queima de gordura preservando massa muscular:\n1. Mantém um défice ligeiro de 300–400 kcal/dia e ingere ~1.6 a 2.0 g de proteína por kg (${Math.round(s.prof.kg*1.8)}g/dia para os teus ${s.prof.kg} kg).\n2. Combina 2–3 sessões de **Força/HIIT** com cardio em Zona 2.\n3. Podes anexar um screenshot do **MyFitnessPal** no separador Treinos para eu ajustar o treino ao teu dia!`,
+      text:`🥗 **Controlo de Peso e Nutrição:**\n• Aponta para um défice moderado de 300–400 kcal/dia e ~${Math.round(s.prof.kg*1.8)}g de proteína/dia.\n• Combina treino de força com corrida/caminhada em ritmo constante.\n• Podes anexar um screenshot do **MyFitnessPal** em Treinos para ajuste automático.`,
       workout:findW('HIIT 30/30')
     };
   }
@@ -1109,22 +1115,21 @@ async function generateAIReply(userMsg){
     const rec=RECOVER_ROUTINES[body];
     const w={id:'Recover|'+rec.title,name:rec.title,sport:rec.sport,why:rec.why,intents:['recup'],steps:rec.steps.map(x=>({n:x[0],s:x[1],tip:x[2],z:'recuperação'})),dur:Math.max(5,Math.round(rec.steps.reduce((a,b)=>a+b[1],0)/60))};
     return{
-      text:`🩹 **Protocolo de Recuperação e Prevenção (${body}):**\nA tua Fadiga atual (ATL) é de **${s.ff.cur.fatigue}** e a Forma (TSB) é **${s.ff.cur.form}**.\n• Reduz o impacto articular nas próximas 48h.\n• Faz já esta rotina guiada de **${rec.title}** focada em mobilidade, controlo excêntrico e descompressão:`,
+      text:`🩹 **Recuperação (${body}):**\nEvita impacto forte durante 48h e faz já esta sessão curta de mobilidade e reforço articular:`,
       workout:w
     };
   }
   if(/semana|plano|program/.test(q)){
     return{
-      text:`📅 **Microciclo Semanal Recomendado para Ti (${s.wkKm.toFixed(1)} / ${s.goalKm} km feitos esta semana):**\n• **2.ª feira:** Mobilidade de anca + Core (20 min)\n• **3.ª feira:** Intervalos curtos ou Fartlek (qualidade e VO2 máx)\n• **5.ª feira:** Corrida fácil em Zona 2 + Força Corpo inteiro\n• **Sábado:** Corrida progressiva / Longo para atingir a meta de ${s.goalKm} km\n• **Domingo:** Descanso ou Yoga para pernas de corredor`,
+      text:`📅 **Plano simples para esta semana (${s.wkKm.toFixed(1)} / ${s.goalKm} km feitos):**\n• **Dia 1:** Intervalos curtos ou Fartlek\n• **Dia 2:** Força (Corpo inteiro) + Mobilidade\n• **Dia 3:** Corrida fácil em ritmo confortável\n• **Fim de semana:** Treino longo progressivo`,
       workout:findW('Fartlek')
     };
   }
-  // Resposta padrão: recomendação do treino de hoje com base em Fitness & Freshness + Meta Semanal + Nutrição
   const needRec=s.ff.cur.form<-15;
   const needSpeed=s.ff.cur.form>=0&&s.wkKm>0;
   const wToday=needRec?findW('Corrida de recuperação'):needSpeed?findW('Intervalos curtos'):findW('Corrida fácil');
   return{
-    text:`🤖 **Diagnóstico do Teu Personal Trainer para Hoje:**\n• **Estado de Forma (TSB):** ${s.ff.cur.form>0?'+'+s.ff.cur.form:s.ff.cur.form} (${s.ff.status})\n• **Progresso Semanal:** ${s.wkKm.toFixed(1)} km de ${s.goalKm} km (${s.wkCount} atividade${s.wkCount===1?'':'s'})\n• **Conselho para hoje:** ${needRec?'Acumulaste carga importante nos últimos dias. Hoje o foco é recuperação ativa para supercompensares sem risco de lesão.':needSpeed?'Estás com excelente frescura muscular! É o dia ideal para um treino de estímulo de velocidade/ritmo.':'Hoje é ótimo para consolidares a tua base aeróbica e somares quilómetros rumo à tua meta semanal.'}`,
+    text:`🏃 **Sugestão para hoje:**\nLevas **${s.wkKm.toFixed(1)} / ${s.goalKm} km** esta semana (${s.ff.status}).\n${needRec?'Hoje o ideal é uma sessão leve de recuperação para assimilares a carga recente.':needSpeed?'Estás fresco! Aproveita para um treino de ritmo/velocidade.':'Faz uma sessão confortável para somar quilómetros sem fadiga excessiva.'}`,
     workout:wToday
   };
 }
@@ -1134,50 +1139,53 @@ window.openAICoach=function(){
   gm.classList.add('on');
   const s=getAthleteSnap();
   if(!aiHistory.length){
-    aiHistory=[{role:'ai',text:`Olá, ${ls('kr_name','Atleta')}! 👋 Sou o teu **KeepRun AI Personal Trainer**.\nJá analisei o teu histórico: tens **${acts.length} atividades**, **${s.wkKm.toFixed(1)} / ${s.goalKm} km** esta semana e a tua Forma atual é **${s.ff.cur.form>0?'+'+s.ff.cur.form:s.ff.cur.form}** (${s.ff.status}).\n\nEm que te posso ajudar hoje?`}];
+    aiHistory=[{role:'ai',text:`Olá, **${ls('kr_name','Atleta')}**! 👋 Levas **${s.wkKm.toFixed(1)} / ${s.goalKm} km** esta semana.\nPergunta-me o que treinar hoje, o que comer antes do treino ou como melhorar os teus tempos.`}];
   }
 
   const fmtMsg=t=>esc(t).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
   const prompts=[
-    '🏃 Que treino devo fazer hoje?',
-    '📊 Analisa a minha última atividade',
-    '⏱️ Previsão dos meus tempos (5k, 10k, 21k)',
-    '🥗 Ajustar treino às calorias (MyFitnessPal)',
-    '🩹 Sinto fadiga ou dor no joelho/gémeos',
-    '📅 Cria-me um plano para esta semana'
+    'Que treino faço hoje?',
+    'O que comer antes de treinar?',
+    'Analisar última corrida',
+    'Meus tempos 5k / 10k',
+    'Plano para a semana'
   ];
 
-  gm.innerHTML=`<div class="gh"><b>🤖 KeepRun AI — Personal Trainer</b><div><button class="btn" id="ai-cfg" style="padding:5px 8px;font-size:12px" title="Configurar chave Gemini opcional">⚙️ IA</button> <button class="btn" id="gx">Fechar</button></div></div>
-    <div class="card" style="padding:10px 12px;margin-bottom:8px;background:#1e293b;border-color:var(--ac)">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px">
-        <span>⚡ <b>Forma:</b> ${s.ff.cur.form>0?'+'+s.ff.cur.form:s.ff.cur.form} (${s.ff.status})</span>
-        <span>🏃 <b>Semana:</b> ${s.wkKm.toFixed(1)} / ${s.goalKm} km</span>
-        <span>🏅 <b>5k est.:</b> ${s.pred5k}</span>
+  gm.innerHTML=`
+  <div style="display:flex;flex-direction:column;height:calc(100dvh - 40px);max-width:600px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--bd)">
+      <div><b style="font-size:18px">Personal Trainer</b><div class="mu" style="font-size:12px">${s.wkKm.toFixed(1)}/${s.goalKm} km esta semana · ${s.ff.status}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" id="ai-clr" style="padding:6px 10px;font-size:12px">Limpar</button>
+        <button class="btn" id="gx" style="padding:6px 12px;font-size:13px">Fechar</button>
       </div>
     </div>
-    <div class="chips" style="margin-bottom:8px">${prompts.map(p=>`<button class="chip" data-ap="${esc(p)}">${esc(p)}</button>`).join('')}</div>
-    <div id="ai-log" style="max-height:48vh;overflow-y:auto;padding:4px 0">
-      ${aiHistory.map((m,idx)=>`<div class="card" style="margin-bottom:8px;background:${m.role==='user'?'#262626':'var(--card)'};border-color:${m.role==='user'?'#404040':'var(--bd)'}">
-        <div class="mu" style="font-size:11px;margin-bottom:4px">${m.role==='user'?'👤 Tu':'🤖 Personal Trainer AI'}</div>
-        <div style="line-height:1.45">${fmtMsg(m.text)}</div>
-        ${m.workout?`<div class="card" style="background:var(--bg);margin:8px 0 0;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <div><b>${window.ic?ic(m.workout.sport):'🏃'} ${esc(m.workout.name)}</b><div class="mu">${esc(m.workout.sport)} · ${m.workout.dur} min · ${esc(m.workout.why)}</div></div>
-          <button class="btn pri" data-aiw="${idx}" style="padding:6px 12px;font-size:12px">▶️ Iniciar treino</button>
-        </div>`:''}
-      </div>`).join('')}
+
+    <div id="ai-log" style="flex:1;overflow-y:auto;padding:14px 2px;display:flex;flex-direction:column;gap:10px">
+      ${aiHistory.map((m,idx)=>`
+        <div style="align-self:${m.role==='user'?'flex-end':'flex-start'};max-width:86%;background:${m.role==='user'?'var(--ac)':'var(--card)'};color:#fff;border:${m.role==='user'?'0':'1px solid var(--bd)'};padding:11px 14px;border-radius:${m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:14px;line-height:1.45">
+          <div>${fmtMsg(m.text)}</div>
+          ${m.workout?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <span style="font-size:13px"><b>${window.ic?ic(m.workout.sport):'🏃'} ${esc(m.workout.name)}</b> <span class="mu">(${m.workout.dur} min)</span></span>
+            <button class="btn pri" data-aiw="${idx}" style="padding:5px 10px;font-size:12px">▶️ Iniciar</button>
+          </div>`:''}
+        </div>
+      `).join('')}
     </div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <input id="ai-in" placeholder="Pergunta ao teu Personal Trainer AI (ex.: treino de 30 min, baixar ritmo…)" style="flex:1">
-      <button class="btn pri" id="ai-send">Enviar</button>
-    </div>`;
+
+    <div style="padding-top:8px;border-top:1px solid var(--bd)">
+      <div class="chips" style="margin-bottom:8px">${prompts.map(p=>`<button class="chip" data-ap="${esc(p)}" style="font-size:12px;padding:5px 11px">${esc(p)}</button>`).join('')}</div>
+      <div style="display:flex;gap:8px">
+        <input id="ai-in" placeholder="Escreve uma mensagem..." style="flex:1;border-radius:20px;padding:9px 14px">
+        <button class="btn pri" id="ai-send" style="border-radius:20px;padding:9px 18px;font-weight:600">Enviar</button>
+      </div>
+    </div>
+  </div>`;
 
   const q=s=>gm.querySelector(s),log=q('#ai-log');
   if(log)log.scrollTop=log.scrollHeight;
   q('#gx').onclick=()=>gm.classList.remove('on');
-  q('#ai-cfg').onclick=()=>{
-    const k=prompt('Opcional: Cola uma API Key do Google Gemini (AI Studio) para respostas LLM na nuvem, ou deixa em branco para usar o motor AI integrado:',ls('kr_gemini_key',''));
-    if(k!==null){ss('kr_gemini_key',k.trim());toast(k.trim()?'Chave Gemini AI ativa!':'A usar motor AI integrado KeepRun')}
-  };
+  q('#ai-clr').onclick=()=>{aiHistory=[];setJSON('kr_ai_chat',[]);openAICoach()};
   const send=async txt=>{
     txt=(txt||'').trim();if(!txt)return;
     aiHistory.push({role:'user',text:txt});

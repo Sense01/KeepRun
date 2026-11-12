@@ -319,7 +319,7 @@ el.querySelectorAll('.wmini').forEach(e=>e.onclick=()=>openW(p[+e.dataset.i]))};
 let lk=0;setInterval(()=>{try{const s=$('#rstop');if(!s||s.classList.contains('hide')){lk=0;return}const c=calc(rp),km=Math.floor(c.dist/1000);
 if(km>lk){lk=km;chime('km')}}catch(e){}},3000);
 const rs=$('#rstart');if(rs)rs.addEventListener('click',()=>AC());
-const stl=document.createElement('style');stl.textContent=`.ov{position:fixed;inset:0;background:var(--bg);z-index:2500;display:none;overflow:auto;padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}.ov.on{display:block}
+const stl=document.createElement('style');stl.textContent=`.ov{position:fixed;inset:0;background:var(--bg);z-index:2500;display:none;overflow:auto;padding:calc(14px + env(safe-area-inset-top)) max(16px, calc((100vw - 680px) / 2)) calc(24px + env(safe-area-inset-bottom))}.ov.on{display:block}
 .gh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:20px;margin-bottom:8px}.gb{margin:14px 0;display:flex;gap:10px;flex-wrap:wrap}
 .gst{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--bd)}.gst span{width:26px;height:26px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:13px;flex:none}.gst div{flex:1}.gst em{font-style:normal;color:var(--mu)}
 .gan{height:min(34vh,280px);max-width:340px;margin:6px auto 0}.gan svg{width:100%;height:100%;display:block}.gem{font-size:96px;text-align:center;line-height:2.6}.gst .gth{width:56px;height:62px;flex:none;display:grid;place-items:center;font-size:26px}.gth svg{width:100%;height:100%}
