@@ -96,27 +96,51 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user){loa
 addEventListener('online',()=>{if(user)doSync()});
 setInterval(()=>{if(user&&!document.hidden)loadFA()},300000);
 
-// ---- gostos e comentários partilhados (só entre amigos) ----
+// ---- Keeps (gostos) e comentários partilhados (só entre amigos) ----
+const getLocalKeeps=()=>{try{return JSON.parse(ls('kr_keeps','{}'))||{}}catch(e){return{}}};
+const setLocalKeep=(id,v)=>{const k=getLocalKeeps();if(v)k[id]=1;else delete k[id];ss('kr_keeps',JSON.stringify(k))};
 async function loadSoc(owner,aid){let k=[],c=[];
   try{const s=await getDocs(collection(db,'activities',owner,'items',aid,'kudos'));k=s.docs.map(d=>({uid:d.id,name:String(d.data().name||'Amigo').slice(0,60),t:num(d.data().t)}))}catch(e){}
+  if(user&&getLocalKeeps()[owner+'_'+aid]&&!k.some(x=>x.uid===user.uid))k.unshift({uid:user.uid,name:uname().slice(0,60),t:Date.now()});
   try{const s=await getDocs(query(collection(db,'activities',owner,'items',aid,'comments'),orderBy('t'),limit(20)));c=s.docs.map(d=>({id:d.id,uid:String(d.data().uid||''),name:String(d.data().name||'Amigo').slice(0,60),text:String(d.data().text||'').slice(0,200),t:num(d.data().t)}))}catch(e){}
   return{k,c}}
 async function loadMine(){if(!user||state!=='ready')return;
-  for(const a of acts.filter(x=>x.share!==false&&ls('kr_share','1')==='1').slice().sort((x,y)=>y.date-x.date).slice(0,10))MY[key(a)]=await loadSoc(user.uid,key(a));
+  for(const a of acts.filter(x=>x.share!==false&&ls('kr_share','1')==='1').slice().sort((x,y)=>y.date-x.date).slice(0,10)){
+    const s=await loadSoc(user.uid,key(a));MY[key(a)]=s;
+    if(s.k.some(x=>x.uid===user.uid))a.k=true;
+  }
   if(window.renderCards)renderCards();renderBell()}
-window.KR_social=a=>{const m=user&&MY[key(a)];if(!m)return'';let h='';
-  if(m.k.length)h+=`<div class="mu" style="margin:6px 0">👍 ${m.k.length} · ${m.k.slice(0,5).map(x=>esc(x.name)).join(', ')}${m.k.length>5?'…':''}</div>`;
-  return h+m.c.map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')};
+window.KR_socData=a=>{const m=(user&&MY[key(a)])||{k:[],c:[]};return{k:m.k,c:m.c,mine:!!(user&&m.k.some(x=>x.uid===user.uid))}};
+window.KR_keep=(a,on)=>{
+  if(!user)return;const k=key(a);setLocalKeep(user.uid+'_'+k,on);
+  const m=MY[k]=MY[k]||{k:[],c:[]};
+  m.k=m.k.filter(x=>x.uid!==user.uid);
+  if(on)m.k.unshift({uid:user.uid,name:uname().slice(0,60),t:Date.now()});
+  if(state==='ready'&&a.share!==false&&ls('kr_share','1')==='1'){
+    const r=doc(db,'activities',user.uid,'items',k,'kudos',user.uid);
+    (on?setDoc(r,{name:uname().slice(0,60),t:Date.now()}):deleteDoc(r)).catch(()=>{});
+  }
+};
+window.KR_social=a=>{const m=user&&MY[key(a)];if(!m)return'';
+  return m.c.map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')};
 window.KR_cmt=(a,text)=>{if(state!=='ready'||!user||a.share===false||ls('kr_share','1')!=='1')return false;
   setDoc(doc(collection(db,'activities',user.uid,'items',key(a),'comments')),{uid:user.uid,name:uname().slice(0,60),text:String(text).slice(0,200),t:Date.now()}).then(loadMine).catch(()=>toast('Erro ao comentar'));return true};
-const mineK=p=>!!(user&&p.soc&&p.soc.k.some(x=>x.uid===user.uid));
-async function toggleKudos(i){const p=FA[i];if(!p)return;const r=doc(db,'activities',p.owner,'items',p.aid,'kudos',user.uid);
-  try{mineK(p)?await deleteDoc(r):await setDoc(r,{name:uname().slice(0,60),t:Date.now()});p.soc=await loadSoc(p.owner,p.aid);renderFF()}catch(e){toast('Erro')}}
+const mineK=p=>!!(user&&((p.soc&&p.soc.k.some(x=>x.uid===user.uid))||getLocalKeeps()[p.owner+'_'+p.aid]));
+async function toggleKudos(i){const p=FA[i];if(!p||!user)return;
+  const now=!mineK(p);setLocalKeep(p.owner+'_'+p.aid,now);
+  p.soc=p.soc||{k:[],c:[]};p.soc.k=p.soc.k.filter(x=>x.uid!==user.uid);
+  if(now)p.soc.k.unshift({uid:user.uid,name:uname().slice(0,60),t:Date.now()});
+  renderFF();toast(now?'🔥 Deste um Keep!':'Keep removido');
+  if(state==='ready'){
+    const r=doc(db,'activities',p.owner,'items',p.aid,'kudos',user.uid);
+    try{now?await setDoc(r,{name:uname().slice(0,60),t:Date.now()}):await deleteDoc(r);p.soc=await loadSoc(p.owner,p.aid);renderFF()}catch(e){}
+  }
+}
 async function addComment(i){const p=FA[i];if(!p)return;const t=prompt('Comentário');if(!t||!t.trim())return;
   try{await setDoc(doc(collection(db,'activities',p.owner,'items',p.aid,'comments')),{uid:user.uid,name:uname().slice(0,60),text:t.trim().slice(0,200),t:Date.now()});p.soc=await loadSoc(p.owner,p.aid);renderFF()}catch(e){toast('Erro')}}
 // ---- notificações ----
 function notifs(){const out=[];for(const [k,m] of Object.entries(MY)){const a=acts.find(x=>key(x)===k);if(!a)continue;
-  m.k.forEach(x=>out.push({t:x.t,txt:`${x.name} deu gosto a "${a.name}"`}));m.c.forEach(c=>{if(c.uid!==user.uid)out.push({t:c.t,txt:`${c.name} comentou "${a.name}": ${c.text}`})})}
+  m.k.forEach(x=>{if(!user||x.uid!==user.uid)out.push({t:x.t,txt:`${x.name} deu um Keep a "${a.name}"`})});m.c.forEach(c=>{if(c.uid!==user.uid)out.push({t:c.t,txt:`${c.name} comentou "${a.name}": ${c.text}`})})}
   inc.forEach(r=>out.push({t:num(r.t),txt:`${r.fromName} quer ser teu amigo`,req:true}));return out.sort((a,b)=>b.t-a.t)}
 function showNotifs(l){let g=document.getElementById('nv');if(!g){g=document.createElement('div');g.id='nv';g.className='ov';document.body.appendChild(g)}g.classList.add('on');
   g.innerHTML='<div class="gh"><b>Notificações</b><button class="btn" id="nx">Fechar</button></div>'+(l.length?l.slice(0,30).map(x=>`<div class="gst"><div><div>${esc(x.txt)}</div><div class="mu">${x.t?new Date(x.t).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</div></div></div>`).join(''):'<p class="mu">Sem notificações.</p>');
@@ -233,8 +257,8 @@ function fpost(a,i){const pts=[],r=Array.isArray(a.r)?a.r:[];for(let i=0;i+1<r.l
   <h2 style="cursor:default">${esc(a.title||'')}</h2>${ef?`<div class="mu" style="margin:-6px 0 10px">💪 Esforço ${ef}/10</div>`:''}${a.desc?`<p style="margin:0 0 10px">${esc(a.desc)}</p>`:''}
   <div class="ps"><div><span>Distância</span><b>${d?(d/1000).toFixed(2)+' km':'—'}</b></div><div><span>Subida</span><b>${el} m</b></div><div><span>Tempo</span><b>${fTL(du)}</b></div></div>
   ${pts.length>1?`<div class="mapbox" style="cursor:default">${thumb(pts)}</div>`:''}
-  <div class="kd">${k.length?'👍 '+k.length+' · '+k.slice(0,4).map(x=>esc(x.name)).join(', '):'Sê o primeiro a dar gosto!'}</div>${cm.map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')}
-  <div class="ac"><button class="fk ${mineK(a)?'on':''}" data-i="${i}" aria-label="Dar gosto">${(window.KR_IC||{}).thumb||''}</button><button class="fc" data-i="${i}" aria-label="Comentar">${(window.KR_IC||{}).chat||''}</button></div></div>`}
+  <div class="kd">${k.length?`🔥 <b>${k.length} ${k.length===1?'Keep':'Keeps'}</b> · `+k.slice(0,4).map(x=>esc(x.name)).join(', '):'Sê o primeiro a dar um Keep!'}</div>${cm.map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')}
+  <div class="ac"><button class="fk ${mineK(a)?'on':''}" data-i="${i}" aria-label="Dar Keep">${(window.KR_IC||{}).thumb||''}<span>${k.length?k.length+' ':''}${k.length===1?'Keep':'Keeps'}</span></button><button class="fc" data-i="${i}" aria-label="Comentar">${(window.KR_IC||{}).chat||''}</button></div></div>`}
 function renderFF(){const el=$('#ff');if(!el)return;el.innerHTML=FA.length?'<h3 style="margin:8px 4px">Amigos</h3>'+FA.map((a,i)=>fpost(a,i)).join(''):'';
   el.querySelectorAll('.fk').forEach(b=>b.onclick=()=>toggleKudos(+b.dataset.i));el.querySelectorAll('.fc').forEach(b=>b.onclick=()=>addComment(+b.dataset.i))}
 function renderAll(){renderAcct();renderFriends();renderFF();renderBell()}

@@ -114,7 +114,7 @@ header h1{font-size:22px;text-align:center}
 .mapbox .th{width:100%;height:100%;background:none;border-radius:0}
 .kd{padding:18px 0 6px;font-size:14px}.cm p{margin:4px 0;font-size:14px}
 .ac{display:flex;justify-content:space-between;padding:8px 28px 12px}
-.ac button{background:none;border:0;color:var(--tx);cursor:pointer;padding:4px}.ac button.on{color:var(--ac)}
+.ac button{background:none;border:0;color:var(--tx);cursor:pointer;padding:4px 8px;display:inline-flex;align-items:center;gap:5px;border-radius:8px;font:inherit}.ac button.on{color:var(--ac)}
 .ac svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .cg{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center;margin-top:10px}.cg u{text-decoration:none;color:var(--mu)}
 .cg span{padding:6px 0;border-radius:50%}.cg span.on{background:var(--ac)}
@@ -185,10 +185,16 @@ const ini=()=>(ls('kr_name','Atleta')[0]||'A').toUpperCase();
 const hello=()=>document.querySelectorAll('.av.me,.avt').forEach(e=>e.textContent=ini());
 let tt;const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),2200)};
 const wkStart=()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()};
-function thumb(pts){const st=Math.max(1,Math.floor(pts.length/90)),q=pts.filter((_,i)=>i%st===0),k=Math.cos(q[0][0]*R),xs=q.map(p=>p[1]*k),ys=q.map(p=>-p[0]);
-const x0=Math.min(...xs),y0=Math.min(...ys),sc=84/Math.max(Math.max(...xs)-x0,Math.max(...ys)-y0,1e-9);
-const P=q.map((p,i)=>[(xs[i]-x0)*sc+8,(ys[i]-y0)*sc+8]);
-return `<svg class="th" viewBox="0 0 100 100"><polyline fill="none" stroke="#fc4c02" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" points="${P.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}"/><circle cx="${P[0][0]}" cy="${P[0][1]}" r="2.2" fill="#3ddc84"/><circle cx="${P[P.length-1][0]}" cy="${P[P.length-1][1]}" r="2.2" fill="#fff"/></svg>`}
+function thumb(pts){
+const st=Math.max(1,Math.floor(pts.length/120)),q=pts.filter((_,i)=>i%st===0||i===pts.length-1);
+const lats=q.map(p=>+p[0]),lons=q.map(p=>+p[1]),minLat=Math.min(...lats),maxLat=Math.max(...lats),minLon=Math.min(...lons),maxLon=Math.max(...lons);
+const W=600,H=300,xT=(lo,z)=>((lo+180)/360)*(1<<z),yT=(la,z)=>{const s=Math.sin(Math.max(-85,Math.min(85,la))*R);return(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*(1<<z)};
+let z=15;for(let tz=16;tz>=10;tz--){const sx=(xT(maxLon,tz)-xT(minLon,tz))*256,sy=(yT(minLat,tz)-yT(maxLat,tz))*256;if(sx<=W*0.74&&sy<=H*0.74){z=tz;break}z=tz}
+const cx=((xT(minLon,z)+xT(maxLon,z))/2)*256,cy=((yT(minLat,z)+yT(maxLat,z))/2)*256,vx0=Math.round(cx-W/2),vy0=Math.round(cy-H/2),nT=1<<z;
+const tx0=Math.floor(vx0/256),tx1=Math.floor((vx0+W)/256),ty0=Math.floor(vy0/256),ty1=Math.floor((vy0+H)/256);
+let tiles='';for(let tx=tx0;tx<=tx1;tx++)for(let ty=ty0;ty<=ty1;ty++){if(ty<0||ty>=nT)continue;const wx=((tx%nT)+nT)%nT;tiles+=`<image href="https://tile.openstreetmap.org/${z}/${wx}/${ty}.png" x="${tx*256-vx0}" y="${ty*256-vy0}" width="256.5" height="256.5" preserveAspectRatio="none"/>`}
+const P=q.map(p=>[(xT(p[1],z)*256-vx0),(yT(p[0],z)*256-vy0)]),ptsStr=P.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+return `<svg class="th" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice"><g class="leaflet-tile-pane">${tiles}</g><polyline fill="none" stroke="#000" stroke-opacity=".55" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" points="${ptsStr}"/><polyline fill="none" stroke="#fc4c02" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${ptsStr}"/><circle cx="${P[0][0].toFixed(1)}" cy="${P[0][1].toFixed(1)}" r="5.5" fill="#3ddc84" stroke="#000" stroke-width="1.8"/><circle cx="${P[P.length-1][0].toFixed(1)}" cy="${P[P.length-1][1].toFixed(1)}" r="5.5" fill="#fff" stroke="#fc4c02" stroke-width="2.2"/></svg>`}
 const FL='<svg viewBox="0 0 24 24"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z"/></svg>';
 const IC={thumb:'<svg viewBox="0 0 24 24"><path d="M7 11v9H4v-9zM7 11l4-8c2 0 3 1 3 3l-.5 3H19a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.8 20H7"/></svg>',chat:'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>',share:'<svg viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4M5 11v10h14V11"/></svg>'};
 const fTL=s=>{s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=s%60;return h?`${h}h ${m}m`:`${m}m ${c}s`};
@@ -215,14 +221,18 @@ function renderCards(){const l=$('#list');acts.sort((a,b)=>b.date-a.date);const 
 const f=acts.filter(a=>a.name.toLowerCase().includes(q));
 l.innerHTML=f.length?'':'<p class="mu" style="padding:16px">Sem atividades. Toca em + para importar um GPX ou em Gravar.</p>';
 f.forEach((a,i)=>{const c=document.createElement('div');c.className='post';c.style.animationDelay=Math.min(i,6)*60+'ms';
+const soc=window.KR_socData?KR_socData(a):{k:[],c:[],mine:false};
+const myKeep=!!(a.k||soc.mine);
+const kNames=[...(a.k&&!soc.mine?[ls('kr_name','Atleta')]:[]),...soc.k.map(x=>x.name)];
+const kCount=kNames.length;
 c.innerHTML=`<div class="ph"><span class="av me">${esc(ini())}</span><div class="pm"><b>${nm}</b><div class="mu">${fDT(a.date)}</div><div class="mu">${window.ic?ic(a.type):(ICON[a.type]||'🏃')} ${esc(a.type)}</div></div></div>
 <h2>${esc(a.name)}</h2>${window.KR_extra?KR_extra(a):''}
 <div class="ps"><div><span>Distância</span><b>${a.dist?(a.dist/1000).toFixed(2)+' km':'—'}</b></div><div><span>Subida</span><b>${Math.round(a.elev)} m</b></div><div><span>Tempo</span><b>${fTL(a.dur)}</b></div><div class="r"><span>Conquistas</span><b>🏅 ${ach(a)}</b></div></div>
 ${a.pts&&a.pts.length>1?`<div class="mapbox">${thumb(a.pts)}</div>`:''}
-<div class="kd">${a.k?'Deste gosto a esta atividade':'Sê o primeiro a dar gosto!'}</div><div class="cm">${(a.c||[]).map(x=>`<p><b>${nm}</b> ${esc(x)}</p>`).join('')}</div>${window.KR_social?KR_social(a):''}
-<div class="ac"><button class="lk ${a.k?'on':''}">${IC.thumb}</button><button class="cmt">${IC.chat}</button><button class="shr">${IC.share}</button></div>`;
+<div class="kd">${kCount?`🔥 <b>${kCount} ${kCount===1?'Keep':'Keeps'}</b> · ${kNames.slice(0,5).map(esc).join(', ')}${kNames.length>5?'…':''}`:'Sê o primeiro a dar um Keep!'}</div><div class="cm">${(a.c||[]).map(x=>`<p><b>${nm}</b> ${esc(x)}</p>`).join('')}</div>${window.KR_social?KR_social(a):''}
+<div class="ac"><button class="lk ${myKeep?'on':''}" aria-label="Dar Keep">${IC.thumb}<span>${kCount?kCount+' ':''}${kCount===1?'Keep':'Keeps'}</span></button><button class="cmt" aria-label="Comentar">${IC.chat}</button><button class="shr" aria-label="Partilhar">${IC.share}</button></div>`;
 c.querySelector('h2').onclick=()=>show(a);const mb=c.querySelector('.mapbox');if(mb)mb.onclick=()=>show(a);
-c.querySelector('.lk').onclick=()=>{a.k=!a.k;save();renderCards()};
+c.querySelector('.lk').onclick=()=>{a.k=!myKeep;a.dirty=true;if(window.KR_keep)KR_keep(a,a.k);save();renderCards();toast(a.k?'🔥 Deste um Keep!':'Keep removido')};
 c.querySelector('.cmt').onclick=()=>{const t=prompt('Comentário');if(t){if(!(window.KR_cmt&&KR_cmt(a,t.slice(0,200)))){(a.c=a.c||[]).push(t.slice(0,300));save()}renderCards()}};
 c.querySelector('.shr').onclick=()=>{const t=`${a.name} — ${(a.dist/1000).toFixed(2)} km em ${fTL(a.dur)} #KeepRun`;if(navigator.share)navigator.share({title:'KeepRun',text:t}).catch(()=>{});else{try{navigator.clipboard.writeText(t)}catch(e){}toast('Texto copiado')}};
 l.appendChild(c)})}
