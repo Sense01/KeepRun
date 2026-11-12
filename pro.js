@@ -644,9 +644,21 @@ function enhanceStats(){
       <span class="mu">⚙️ Parâmetros fisiológicos (para Zonas, Potência e Esforço Relativo): <b>${prof.kg} kg · FC máx ${prof.maxHr} bpm</b></span>
       <button class="btn" id="kr-ed-prof" style="padding:4px 10px;font-size:12px">Configurar Peso / FC</button>
     </div>
+  </div>
+  <div class="card">
+    <b>🧡 Integração Strava & 🤖 Personal Trainer AI</b>
+    <p class="mu" style="margin:6px 0 10px">Importa as tuas atividades do Strava, explora perfis de atletas do Strava ou fala com o teu Personal Trainer inteligente.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn pri" id="kr-st-imp">📥 Importar do Strava</button>
+      <button class="btn" id="kr-st-prf">👤 Perfis do Strava</button>
+      <button class="btn" id="kr-st-ai">🤖 Personal Trainer AI</button>
+    </div>
   </div>`;
 
   s.appendChild(box);
+  if(box.querySelector('#kr-st-imp'))box.querySelector('#kr-st-imp').onclick=()=>openStravaImport();
+  if(box.querySelector('#kr-st-prf'))box.querySelector('#kr-st-prf').onclick=()=>openStravaProfiles();
+  if(box.querySelector('#kr-st-ai'))box.querySelector('#kr-st-ai').onclick=()=>openAICoach();
   box.querySelector('#kr-add-goal').onclick=()=>{
     const period=prompt('Período do objetivo (Semana, Mês ou Ano):','Mês')||'Mês';
     const sport=prompt('Desporto (Todos, Corrida, Bicicleta, Caminhada):','Todos')||'Todos';
@@ -714,7 +726,477 @@ function enhanceWorkouts(){
   };
 }
 
-// ---------- 13. Interligação Automática com as Vistas do KeepRun ----------
+// ---------- 13. Perfis de Outros Atletas (Amigos KeepRun & Perfis do Strava) ----------
+const DEFAULT_STRAVA_PROFILES=[
+  {id:'strava_409246',stravaId:'409246',name:'Kilian Jornet',city:'Rauma, Noruega',sport:'Trail / Corrida',monthKm:420,yearKm:4850,elevM:18400,pr5k:'13:58',pr10k:'29:42',prHm:'1:05:10',bio:'Atleta de montanha, trail running e esqui de montanha.'},
+  {id:'strava_7450842',stravaId:'7450842',name:'Tadej Pogačar',city:'Mónaco',sport:'Bicicleta',monthKm:2150,yearKm:24800,elevM:36500,pr5k:'—',pr10k:'—',prHm:'—',bio:'Ciclista profissional · Tour de France & Giro d’Italia.'},
+  {id:'strava_11749201',stravaId:'11749201',name:'Rosa Mota (Lenda PT)',city:'Porto, Portugal',sport:'Corrida',monthKm:195,yearKm:2300,elevM:2800,pr5k:'15:22',pr10k:'31:35',prHm:'1:09:52',bio:'Campeã Olímpica e Mundial da Maratona.'}
+];
+const getSavedStravaProfiles=()=>{const l=getJSON('kr_strava_profs',null);return Array.isArray(l)&&l.length?l:DEFAULT_STRAVA_PROFILES};
+const setSavedStravaProfiles=l=>setJSON('kr_strava_profs',l);
+
+// Abre o perfil completo de um amigo KeepRun ou atleta Strava com comparação Frente-a-Frente
+window.openAthleteProfile=function(ownerId,name,stravaProf){
+  let gm=document.getElementById('gm');if(!gm){gm=document.createElement('div');gm.id='gm';gm.className='ov';document.body.appendChild(gm)}
+  gm.classList.add('on');
+  const myKm30=acts.filter(a=>a.date>=Date.now()-30*864e5).reduce((s,a)=>s+a.dist,0)/1000;
+  const myElev30=acts.filter(a=>a.date>=Date.now()-30*864e5).reduce((s,a)=>s+a.elev,0);
+  const myYearKm=acts.filter(a=>a.date>=new Date(new Date().getFullYear(),0,1).getTime()).reduce((s,a)=>s+a.dist,0)/1000;
+
+  // Atividades sincronizadas deste amigo na KeepRun
+  const faList=(window.KR_fa?KR_fa():[]).filter(x=>x.owner===ownerId||x.fname===name);
+  const fKm=stravaProf?num(stravaProf.monthKm):faList.reduce((s,x)=>s+num(x.dist),0)/1000;
+  const fElev=stravaProf?num(stravaProf.elevM):Math.round(faList.reduce((s,x)=>s+num(x.elev),0));
+  const fYearKm=stravaProf?num(stravaProf.yearKm):fKm*4;
+  const sport=stravaProf?stravaProf.sport:(faList[0]?.type||'Corrida');
+  const city=stravaProf?stravaProf.city:'Atleta KeepRun / Strava';
+  const bio=stravaProf?stravaProf.bio:`Perfil desportivo sincronizado (${faList.length} atividades recentes partilhadas).`;
+  const stravaUrl=stravaProf&&stravaProf.stravaId?(/^https?:/i.test(stravaProf.stravaId)?stravaProf.stravaId:`https://www.strava.com/athletes/${encodeURIComponent(stravaProf.stravaId)}`):'';
+
+  const cmpBar=(label,myV,thV,unit)=>{
+    const tot=(myV+thV)||1,myPct=Math.round(myV/tot*100),thPct=100-myPct;
+    return `<div style="margin:8px 0">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><span><b>Tu:</b> ${myV.toFixed(1)} ${unit}</span><span class="mu">${label}</span><span><b>${esc(name)}:</b> ${thV.toFixed(1)} ${unit}</span></div>
+      <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--bd)"><div style="width:${myPct}%;background:var(--ac)"></div><div style="width:${thPct}%;background:#3b82f6"></div></div>
+    </div>`;
+  };
+
+  gm.innerHTML=`<div class="gh"><b>👤 Perfil de ${esc(name)}</b><button class="btn" id="gx">Fechar</button></div>
+    <div class="card">
+      <div class="ph"><span class="av" style="background:var(--ac);color:#fff">${esc(String(name||'?')[0].toUpperCase())}</span>
+        <div class="pm"><b>${esc(name)}</b><div class="mu">${esc(city)} · ${esc(sport)}</div><div class="mu" style="margin-top:2px">${esc(bio)}</div></div>
+      </div>
+      ${stravaUrl?`<p style="margin:12px 0 0"><a class="btn pri" href="${esc(stravaUrl)}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">🧡 Abrir Perfil Oficial no Strava ↗</a></p>`:''}
+    </div>
+    <div class="card">
+      <b>📊 Estatísticas do Atleta</b>
+      <div class="row" style="margin-top:8px">
+        <div><div class="big">${fKm.toFixed(1)} km</div><div class="mu">Volume mensal</div></div>
+        <div><div class="big">${fYearKm.toFixed(0)} km</div><div class="mu">Volume anual</div></div>
+        <div><div class="big">${fElev} m</div><div class="mu">Subida acumulada</div></div>
+      </div>
+      ${stravaProf&&stravaProf.pr5k?`<div class="mu" style="margin-top:8px">🏅 Recordes de referência: 5 km <b>${esc(stravaProf.pr5k)}</b> · 10 km <b>${esc(stravaProf.pr10k||'—')}</b> · Meia Maratona <b>${esc(stravaProf.prHm||'—')}</b></div>`:''}
+    </div>
+    <div class="card">
+      <b>⚔️ Frente-a-Frente: Tu vs. ${esc(name)}</b>
+      ${cmpBar('Distância (30 dias)',myKm30,fKm,'km')}
+      ${cmpBar('Subida acumulada',myElev30,fElev,'m')}
+      ${cmpBar('Volume anual',myYearKm,fYearKm,'km')}
+    </div>
+    ${faList.length?`<div class="card"><b>🏃 Atividades Recentes de ${esc(name)}</b>
+      ${faList.map(a=>{
+        const pts=[],r=Array.isArray(a.r)?a.r:[];for(let i=0;i+1<r.length;i+=2){const la=Number(r[i]),lo=Number(r[i+1]);if(isFinite(la)&&isFinite(lo))pts.push([la,lo])}
+        return `<div style="padding:10px 0;border-top:1px solid var(--bd)">
+          <b>${esc(a.title||'Atividade')}</b> <span class="mu">· ${new Date(num(a.date)).toLocaleDateString('pt-PT')} · ${(num(a.dist)/1000).toFixed(2)} km em ${fTL(num(a.dur))}</span>
+          ${pts.length>1?`<div class="mapbox" style="margin:8px 0 0;height:200px;border-radius:10px;overflow:hidden">${thumb(pts)}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>`:''}`;
+  gm.querySelector('#gx').onclick=()=>gm.classList.remove('on');
+};
+
+// Explorador de Perfis do Strava dentro da KeepRun
+window.openStravaProfiles=function(){
+  let gm=document.getElementById('gm');if(!gm){gm=document.createElement('div');gm.id='gm';gm.className='ov';document.body.appendChild(gm)}
+  gm.classList.add('on');
+  const profs=getSavedStravaProfiles();
+  const kFriends=window.KR_friendsList?KR_friendsList():[];
+
+  gm.innerHTML=`<div class="gh"><b>🧡 Perfis de Atletas (Strava & KeepRun)</b><button class="btn" id="gx">Fechar</button></div>
+    <p class="mu">Procura qualquer atleta do Strava por ID, URL de perfil (ex.: <code>strava.com/athletes/123456</code>) ou liga o teu Token Strava para veres e comparares perfis dentro da KeepRun.</p>
+    <div class="card">
+      <b>🔍 Adicionar / Ver Perfil de Atleta do Strava</b>
+      <div class="row" style="margin-top:8px">
+        <div><label class="lb" style="margin-top:0">Nome do Atleta</label><input id="sp-nm" placeholder="Ex.: João Silva" style="width:100%"></div>
+        <div><label class="lb" style="margin-top:0">ID ou URL Strava</label><input id="sp-id" placeholder="Ex.: 12345678 ou URL Strava" style="width:100%"></div>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <div><label class="lb" style="margin-top:2px">Cidade / Clube</label><input id="sp-ct" placeholder="Ex.: Lisboa, Portugal" style="width:100%"></div>
+        <div><label class="lb" style="margin-top:2px">Km / mês (aprox.)</label><input id="sp-km" type="number" value="120" style="width:100%"></div>
+        <div><label class="lb" style="margin-top:2px">Desporto</label><input id="sp-sp" value="Corrida" style="width:100%"></div>
+      </div>
+      <div class="gb" style="margin-bottom:0">
+        <button class="btn pri" id="sp-add">➕ Guardar e Ver Perfil</button>
+        <button class="btn" id="sp-open-url">🧡 Abrir direto no Strava ↗</button>
+      </div>
+    </div>
+    ${kFriends.length?`<div class="card"><b>👥 Os Teus Amigos na KeepRun (${kFriends.length})</b>
+      ${kFriends.map((f,i)=>`<div class="fr"><span style="font-weight:600">${esc(f.name)}</span><button class="btn pri" data-kf="${i}" style="padding:4px 10px;font-size:12px">Ver Perfil & Comparar</button></div>`).join('')}
+    </div>`:''}
+    <div class="card">
+      <b>🧡 Perfis Strava Guardados (${profs.length})</b>
+      ${profs.map((p,i)=>`<div class="fr" style="gap:8px;flex-wrap:wrap">
+        <div style="cursor:pointer" data-spv="${i}">
+          <b>${esc(p.name)}</b> <span class="mu">· ${esc(p.city||'')}</span>
+          <div class="mu">${esc(p.sport)} · ${num(p.monthKm)} km/mês · Subida ${num(p.elevM)} m</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn pri" data-spv="${i}" style="padding:4px 10px;font-size:12px">Ver Perfil</button>
+          <button class="btn" data-spd="${i}" style="padding:4px 8px;font-size:12px">✕</button>
+        </div>
+      </div>`).join('')}
+    </div>`;
+
+  const q=s=>gm.querySelector(s);
+  q('#gx').onclick=()=>gm.classList.remove('on');
+  q('#sp-add').onclick=()=>{
+    const name=(q('#sp-nm').value||'').trim()||'Atleta Strava';
+    const rawId=(q('#sp-id').value||'').trim();
+    const idMatch=rawId.match(/athletes\/(\d+)/i);
+    const stravaId=idMatch?idMatch[1]:rawId||'';
+    const monthKm=Math.max(0,+q('#sp-km').value||100);
+    const p={id:'sp_'+Date.now(),stravaId,name:name.slice(0,50),city:(q('#sp-ct').value||'Portugal').slice(0,50),sport:(q('#sp-sp').value||'Corrida').slice(0,30),monthKm,yearKm:monthKm*11,elevM:Math.round(monthKm*14),bio:'Perfil Strava seguido na KeepRun.'};
+    const l=getSavedStravaProfiles();l.unshift(p);setSavedStravaProfiles(l.slice(0,30));
+    openAthleteProfile(p.id,p.name,p);
+  };
+  q('#sp-open-url').onclick=()=>{
+    const raw=(q('#sp-id').value||q('#sp-nm').value||'').trim();
+    const idMatch=raw.match(/(\d{4,})/);
+    const url=idMatch?`https://www.strava.com/athletes/${idMatch[1]}`:`https://www.strava.com/athletes/search?text=${encodeURIComponent(raw||'Portugal')}`;
+    window.open(url,'_blank','noopener');
+  };
+  gm.querySelectorAll('[data-kf]').forEach(b=>b.onclick=()=>{const f=kFriends[+b.dataset.kf];if(f)openAthleteProfile(f.id,f.name)});
+  gm.querySelectorAll('[data-spv]').forEach(b=>b.onclick=()=>{const p=profs[+b.dataset.spv];if(p)openAthleteProfile(p.id,p.name,p)});
+  gm.querySelectorAll('[data-spd]').forEach(b=>b.onclick=()=>{profs.splice(+b.dataset.spd,1);setSavedStravaProfiles(profs);openStravaProfiles()});
+};
+
+// ---------- 14. Importar Atividades do Strava para a KeepRun (API Strava v3, Polyline Decoder & CSV / GPX / TCX) ----------
+// Descodificador oficial de Google Encoded Polyline (usado pelo Strava em map.summary_polyline)
+function decodePolyline(str,durSec=1800,elevGain=50,startDate=Date.now()){
+  if(!str||typeof str!=='string')return[];
+  let idx=0,lat=0,lng=0;const raw=[];
+  while(idx<str.length){
+    let b,shift=0,result=0;
+    do{b=str.charCodeAt(idx++)-63;result|=(b&0x1f)<<shift;shift+=5}while(b>=0x20&&idx<=str.length);
+    const dlat=((result&1)?~(result>>1):(result>>1));lat+=dlat;
+    shift=0;result=0;
+    do{b=str.charCodeAt(idx++)-63;result|=(b&0x1f)<<shift;shift+=5}while(b>=0x20&&idx<=str.length);
+    const dlng=((result&1)?~(result>>1):(result>>1));lng+=dlng;
+    if(Math.abs(lat/1e5)<=90&&Math.abs(lng/1e5)<=180)raw.push([+(lat/1e5).toFixed(5),+(lng/1e5).toFixed(5)]);
+  }
+  const n=raw.length;
+  return raw.map((p,i)=>{
+    const frac=n>1?i/(n-1):0;
+    const el=elevGain>0?Math.round((Math.sin(frac*Math.PI)*elevGain)*10)/10:15;
+    const tm=Math.round(startDate+frac*durSec*1000);
+    return[p[0],p[1],el,tm];
+  });
+}
+
+function mapStravaSport(s){
+  s=String(s||'').toLowerCase();
+  if(/ride|bike|cycling|ebike|velomobile|virtualride/.test(s))return'Bicicleta';
+  if(/walk/.test(s))return'Caminhada';
+  if(/hike/.test(s))return'Hiking';
+  if(/trail/.test(s))return'Trail';
+  if(/swim/.test(s))return'Natação';
+  if(/weight|strength|crossfit/.test(s))return'Força';
+  if(/hiit|workout/.test(s))return'HIIT';
+  if(/yoga/.test(s))return'Yoga';
+  return'Corrida';
+}
+
+// Importador de ficheiro activities.csv do Arquivo de Exportação Oficial do Strava
+function importStravaCSV(csvText){
+  const lines=String(csvText||'').replace(/\r/g,'\n').split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length<2)throw new Error('Ficheiro CSV vazio');
+  const splitCSV=l=>{const o=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){o.push(c.trim());c=''}else c+=ch}o.push(c.trim());return o};
+  const hdr=splitCSV(lines[0]).map(h=>h.toLowerCase());
+  const iName=hdr.findIndex(h=>/activity name|nome da atividade|title|name/.test(h));
+  const iType=hdr.findIndex(h=>/activity type|tipo de atividade|sport|type/.test(h));
+  const iDate=hdr.findIndex(h=>/activity date|data da atividade|date|start_date/.test(h));
+  const iDist=hdr.findIndex(h=>/distance|dist[aâ]ncia/.test(h));
+  const iTime=hdr.findIndex(h=>/moving time|tempo em movimento|elapsed time|tempo decorrido|duration/.test(h));
+  const iElev=hdr.findIndex(h=>/elevation gain|ganho de eleva|subida|elev/.test(h));
+  const iPoly=hdr.findIndex(h=>/polyline/.test(h));
+  if(iDist<0&&iTime<0)throw new Error('Cabeçalhos do Strava não encontrados no CSV');
+
+  let count=0;
+  for(let r=1;r<lines.length;r++){
+    const cols=splitCSV(lines[r]);if(cols.length<3)continue;
+    const name=(iName>=0&&cols[iName]?cols[iName]:'Atividade Strava').slice(0,80);
+    const type=mapStravaSport(iType>=0?cols[iType]:'Run');
+    const parsedDate=iDate>=0?Date.parse(cols[iDate]):NaN;
+    const date=isFinite(parsedDate)?parsedDate:(Date.now()-r*864e5);
+    let rawDist=iDist>=0?parseFloat(String(cols[iDist]).replace(',','.')):0;
+    if(!isFinite(rawDist))rawDist=0;
+    // No CSV do Strava, a distância pode vir em km (ex.: 5.42) ou em metros (ex.: 5420)
+    const dist=rawDist>0&&rawDist<250?Math.round(rawDist*1000):Math.round(rawDist);
+    let dur=iTime>=0?parseFloat(cols[iTime]):0;
+    if(!isFinite(dur)||dur<=0)dur=Math.round((dist/1000)*310);
+    const elev=Math.max(0,Math.round(iElev>=0?parseFloat(cols[iElev])||0:0));
+    const pts=(iPoly>=0&&cols[iPoly])?decodePolyline(cols[iPoly],dur,elev,date):[];
+    if(!dist&&!dur)continue;
+    const isDup=acts.some(a=>Math.abs(a.date-date)<60000&&Math.abs(a.dist-dist)<50);
+    if(!isDup){
+      acts.push({id:Date.now()+Math.random(),name,type,date,dist,dur,elev,pts,eff:6,desc:'Importado do Strava',share:true});
+      count++;
+    }
+  }
+  if(count){save();renderList()}
+  return count;
+}
+
+window.openStravaImport=function(){
+  let gm=document.getElementById('gm');if(!gm){gm=document.createElement('div');gm.id='gm';gm.className='ov';document.body.appendChild(gm)}
+  gm.classList.add('on');
+  const savedTok=ls('kr_strava_tok','');
+  gm.innerHTML=`<div class="gh"><b>📥 Importar Atividades do Strava</b><button class="btn" id="gx">Fechar</button></div>
+    <p class="mu">Traz todo o teu histórico de corridas, voltas de bicicleta e caminhadas do Strava para a KeepRun com mapas, parciais e métricas Pro.</p>
+    <div class="card">
+      <b>⚡ Opção 1: Ligação Direta à API do Strava (Importa atividades + mapas + perfil)</b>
+      <p class="mu" style="margin:6px 0">Cola o teu <b>Access Token</b> do Strava (em <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener" style="color:var(--ac)">strava.com/settings/api</a>) para descarregar automaticamente as tuas atividades e rotas GPS:</p>
+      <input id="st-tok" type="password" placeholder="Access Token do Strava (ex.: a1b2c3d4...)" value="${esc(savedTok)}" style="width:100%;margin-bottom:8px">
+      <div class="gb" style="margin:0"><button class="btn pri" id="st-sync-api">🔄 Sincronizar com a minha conta Strava</button></div>
+      <div id="st-api-st" class="mu" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <b>📂 Opção 2: Ficheiros do Strava (<code>activities.csv</code>, <code>.gpx</code> ou <code>.tcx</code>)</b>
+      <p class="mu" style="margin:6px 0">Seleciona o ficheiro <code>activities.csv</code> (do arquivo ZIP exportado do Strava) ou vários ficheiros <code>.gpx</code> / <code>.tcx</code> de uma só vez:</p>
+      <label class="btn pri" style="cursor:pointer;display:inline-block">📂 Escolher ficheiros do Strava (.csv, .gpx, .tcx)<input id="st-files" type="file" accept=".csv,.gpx,.tcx" multiple hidden></label>
+    </div>
+    <div class="card">
+      <b>🗺️ Opção 3: Importar Atividade Rápida do Strava (com Polyline ou Dados)</b>
+      <div class="row" style="margin-top:8px">
+        <div><label class="lb" style="margin-top:0">Nome da atividade</label><input id="st-m-nm" placeholder="Ex.: Corrida Matinal Strava" style="width:100%"></div>
+        <div><label class="lb" style="margin-top:0">Desporto</label><select id="st-m-sp" style="width:100%"><option>Corrida</option><option>Bicicleta</option><option>Caminhada</option><option>Trail</option><option>Força</option><option>HIIT</option></select></div>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <div><label class="lb" style="margin-top:2px">Distância (km)</label><input id="st-m-km" type="number" step="0.01" value="5.00" style="width:100%"></div>
+        <div><label class="lb" style="margin-top:2px">Tempo (min)</label><input id="st-m-min" type="number" value="28" style="width:100%"></div>
+        <div><label class="lb" style="margin-top:2px">Subida (m)</label><input id="st-m-el" type="number" value="65" style="width:100%"></div>
+      </div>
+      <label class="lb" style="margin-top:8px">Encoded Polyline do Strava (opcional — desenha o mapa exato da corrida)</label>
+      <input id="st-m-poly" placeholder="Ex.: _p~iF~ps|U_ulLnnqC_mqNvxq..." style="width:100%">
+      <div class="gb" style="margin-bottom:0"><button class="btn pri" id="st-m-save">➕ Importar Atividade para a KeepRun</button></div>
+    </div>`;
+
+  const q=s=>gm.querySelector(s);
+  q('#gx').onclick=()=>gm.classList.remove('on');
+  q('#st-sync-api').onclick=async()=>{
+    const tok=(q('#st-tok').value||'').trim(),st=q('#st-api-st');
+    if(!tok){st.textContent='⚠️ Introduz o teu Access Token do Strava.';return}
+    ss('kr_strava_tok',tok);st.textContent='⏳ A ligar à API do Strava e a descarregar atividades…';
+    try{
+      // 1) Obter perfil do atleta autenticado no Strava
+      try{
+        const pRes=await fetch('https://www.strava.com/api/v3/athlete',{headers:{Authorization:'Bearer '+tok}});
+        if(pRes.ok){
+          const ath=await pRes.json();
+          if(ath&&ath.firstname){
+            const profs=getSavedStravaProfiles();
+            const sp={id:'strava_'+ath.id,stravaId:String(ath.id),name:`${ath.firstname} ${ath.lastname||''}`.trim(),city:`${ath.city||''} ${ath.country||''}`.trim()||'Strava',sport:'Corrida / Ciclismo',monthKm:150,yearKm:1800,elevM:2400,bio:ath.bio||'Conta Strava sincronizada via API.'};
+            if(!profs.some(x=>x.stravaId===sp.stravaId)){profs.unshift(sp);setSavedStravaProfiles(profs)}
+          }
+        }
+      }catch(e){}
+      // 2) Obter lista de atividades do atleta no Strava
+      const res=await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=60',{headers:{Authorization:'Bearer '+tok}});
+      if(!res.ok)throw new Error('Token inválido ou sem permissão activity:read (código '+res.status+')');
+      const arr=await res.json();
+      if(!Array.isArray(arr))throw new Error('Resposta inesperada da API Strava');
+      let added=0;
+      arr.forEach(x=>{
+        const date=Date.parse(x.start_date)||Date.now(),dist=Math.round(+x.distance||0),dur=Math.round(+x.moving_time||+x.elapsed_time||0),elev=Math.round(+x.total_elevation_gain||0);
+        if(!dist&&!dur)return;
+        if(acts.some(a=>Math.abs(a.date-date)<60000&&Math.abs(a.dist-dist)<50))return;
+        const poly=x.map&&x.map.summary_polyline?x.map.summary_polyline:'';
+        const pts=poly?decodePolyline(poly,dur,elev,date):[];
+        acts.push({id:Date.now()+Math.random(),name:String(x.name||'Atividade Strava').slice(0,80),type:mapStravaSport(x.sport_type||x.type),date,dist,dur,elev,pts,eff:Math.min(10,Math.max(1,Math.round((+x.suffer_score||50)/15))),desc:'Sincronizado da conta Strava',share:true});
+        added++;
+      });
+      if(added){save();renderList()}
+      st.textContent=`✅ Sincronização concluída! ${added} nova(s) atividade(s) importada(s) do Strava.`;
+      toast(`${added} atividade(s) importada(s) do Strava!`);
+    }catch(err){
+      st.textContent='⚠️ '+err.message+'. Dica: garante que o Access Token tem permissão de leitura ou usa a Opção 2 (ficheiro CSV/GPX).';
+    }
+  };
+  q('#st-files').onchange=async e=>{
+    let tot=0;
+    for(const f of e.target.files){
+      try{
+        if(/\.csv$/i.test(f.name))tot+=importStravaCSV(await f.text());
+        else{acts.push(/\.tcx$/i.test(f.name)?parseTCX(await f.text(),f.name):parseGPX(await f.text(),f.name));tot++}
+      }catch(x){alert(f.name+': '+x.message)}
+    }
+    if(tot){save();renderList()}
+    e.target.value='';gm.classList.remove('on');toast(`${tot} atividade(s) importada(s) para a KeepRun!`);
+  };
+  q('#st-m-save').onclick=()=>{
+    const name=(q('#st-m-nm').value||'').trim()||'Atividade Strava';
+    const type=q('#st-m-sp').value||'Corrida';
+    const dist=Math.max(0,Math.round((+q('#st-m-km').value||0)*1000));
+    const dur=Math.max(60,Math.round((+q('#st-m-min').value||25)*60));
+    const elev=Math.max(0,Math.round(+q('#st-m-el').value||0));
+    const poly=(q('#st-m-poly').value||'').trim();
+    const pts=poly?decodePolyline(poly,dur,elev,Date.now()):[];
+    acts.push({id:Date.now()+Math.random(),name:name.slice(0,80),type,date:Date.now(),dist,dur,elev,pts,eff:6,desc:'Importado do Strava',share:true});
+    save();renderList();gm.classList.remove('on');go('feed');toast('Atividade do Strava importada!');
+  };
+};
+
+// ---------- 15. KeepRun AI Personal Trainer (Treinador Pessoal Inteligente com Contexto Real) ----------
+let aiHistory=getJSON('kr_ai_chat',[]);
+
+// Calcula previsões de tempos de prova (fórmula de Riegel) e resumo fisiológico completo para o Personal Trainer AI
+function getAthleteSnap(){
+  const ff=calcFitnessCurve(30),prof=getProf(),w0=wkStart();
+  const wkActs=acts.filter(a=>a.date>=w0),wkKm=wkActs.reduce((s,a)=>s+a.dist,0)/1000;
+  const runs=acts.filter(a=>a.type==='Corrida'&&a.dist>=1000&&a.dur>120);
+  const bestRun=runs.slice().sort((a,b)=>(a.dur/a.dist)-(b.dur/b.dist))[0]||null;
+  const lastAct=acts.slice().sort((a,b)=>b.date-a.date)[0]||null;
+  const mfp=window.KRW&&KRW.mfpInfo?KRW.mfpInfo():null;
+  // Previsão de tempos de prova (Riegel T2 = T1 * (D2/D1)^1.06)
+  const refDist=bestRun?bestRun.dist:5000,refTime=bestRun?bestRun.dur:1500;
+  const pred=d=>fT(Math.round(refTime*Math.pow(d/refDist,1.06)));
+  return{ff,prof,wkKm,wkCount:wkActs.length,goalKm:+ls('kr_goal',20)||20,bestRun,lastAct,mfp,pred5k:pred(5000),pred10k:pred(10000),predHm:pred(21097),predMar:pred(42195)};
+}
+
+// Motor de resposta do Personal Trainer AI (local + suporte opcional Gemini API)
+async function generateAIReply(userMsg){
+  const q=String(userMsg||'').toLowerCase(),s=getAthleteSnap();
+  const L=window.KRW?KRW.lib(35,false,3):[];
+  const findW=n=>L.find(w=>w.name===n)||L[0];
+
+  // Se o utilizador tiver configurado uma chave API do Google Gemini, tenta resposta LLM enriquecida com a telemetria real
+  const gemKey=ls('kr_gemini_key','');
+  if(gemKey){
+    try{
+      const sys=`És o KeepRun AI Personal Trainer, um treinador desportivo de elite em português de Portugal. Dados reais do atleta: Peso ${s.prof.kg}kg, FC máx ${s.prof.maxHr}bpm, Km esta semana: ${s.wkKm.toFixed(1)}/${s.goalKm}km (${s.wkCount} treinos), Condição Física (CTL): ${s.ff.cur.fitness}, Fadiga (ATL): ${s.ff.cur.fatigue}, Forma (TSB): ${s.ff.cur.form} (${s.ff.status}). Previsões: 5km=${s.pred5k}, 10km=${s.pred10k}, Meia Maratona=${s.predHm}. ${s.mfp?`Nutrição MyFitnessPal: ${s.mfp.m.food}/${s.mfp.m.goal} kcal (${s.mfp.m.carbs}g HC, ${s.mfp.m.protein}g Prot).`:''} Responde de forma concisa, motivadora, prática e estruturada.`;
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(gemKey)}`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{role:'user',parts:[{text:sys+'\n\nPergunta do atleta: '+userMsg}]}]})
+      });
+      if(r.ok){
+        const j=await r.json(),txt=j?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if(txt){
+          const recW=/recuper|dor|cansad/.test(q)?findW('Corrida de recuperação'):/for[cç]a|m[uú]scul/.test(q)?findW('Corpo inteiro'):/r[aá]pid|veloc|interval|5\s*km|10\s*km/.test(q)?findW('Intervalos curtos'):findW('Corrida fácil');
+          return{text:txt,workout:recW};
+        }
+      }
+    }catch(e){}
+  }
+
+  // Respostas inteligentes especializadas baseadas na telemetria real do atleta
+  if(/últim|ultima|analis/.test(q)){
+    if(!s.lastAct)return{text:'Ainda não tens atividades registadas para eu analisar. Grava a tua primeira corrida ou importa as tuas atividades do Strava para te dar uma análise biomecânica e fisiológica completa!',workout:findW('Caminhar e correr')};
+    const m=analyzeAct(s.lastAct);
+    return{
+      text:`📊 **Análise da tua última atividade (${s.lastAct.name}):**\n• **Distância e Tempo:** ${(s.lastAct.dist/1000).toFixed(2)} km em ${fTL(s.lastAct.dur)} (Subida: ${Math.round(s.lastAct.elev)} m)\n• **Ritmo Ajustado à Inclinação (GAP):** ${m.gapStr}\n• **Esforço Relativo:** ${m.relEffort} pts · Potência média est.: ${m.avgW} W · FC média est.: ${m.avgHr} bpm\n• **Diagnóstico do Treinador:** ${m.relEffort>80?'Foi uma sessão exigente que gerou um forte estímulo aeróbico. Nas próximas 24h prioriza hidratação, proteína e um treino regenerativo.':'Bom treino controlado! Mantiveste a carga dentro da zona ideal para construir resistência sem acumular fadiga excessiva.'}`,
+      workout:m.relEffort>80?findW('Mobilidade de anca'):findW('Corrida progressiva')
+    };
+  }
+  if(/previs|tempo|5\s*k|10\s*k|meia|maratona|ritmo de prova/.test(q)){
+    return{
+      text:`⏱️ **Previsão Fisiológica dos Teus Tempos de Prova (Modelo de Riegel):**\nCom base no teu histórico na KeepRun${s.bestRun?` (melhor referência: ${(s.bestRun.dist/1000).toFixed(2)} km em ${fT(s.bestRun.dur)})`:''}:\n• **5 km:** ${s.pred5k} (${fP(5000,Math.round((s.bestRun?s.bestRun.dur:1500)*Math.pow(5000/(s.bestRun?s.bestRun.dist:5000),1.06)))})\n• **10 km:** ${s.pred10k}\n• **Meia Maratona (21,1 km):** ${s.predHm}\n• **Maratona (42,2 km):** ${s.predMar}\n\n💡 **Para baixares estes tempos:** inclui 1 sessão semanal de **Intervalos curtos** (VO2 máx) e 1 **Treino de limiar**.`,
+      workout:findW('Intervalos curtos')
+    };
+  }
+  if(/calor|nutri|myfitnesspal|comer|dieta|peso|emagrec/.test(q)){
+    if(s.mfp){
+      return{
+        text:`🥗 **Plano Nutricional + Treino (MyFitnessPal):**\n• **Balanço atual:** ${s.mfp.m.food} kcal consumidas / meta ${s.mfp.m.goal} kcal (${s.mfp.diff>=0?'+'+s.mfp.diff:s.mfp.diff} kcal)\n• **Macros:** Hidratos ${s.mfp.m.carbs}g (${s.mfp.cPct}%) · Proteína ${s.mfp.m.protein}g (${s.mfp.pPct}%) · Gordura ${s.mfp.m.fat}g (${s.mfp.fPct}%)\n• **Recomendação do Personal Trainer:** ${s.mfp.summary}`,
+        workout:s.mfp.plan[0]||findW('HIIT 30/30')
+      };
+    }
+    return{
+      text:`🥗 **Nutrição e Composição Corporal:**\nPara otimizar a queima de gordura preservando massa muscular:\n1. Mantém um défice ligeiro de 300–400 kcal/dia e ingere ~1.6 a 2.0 g de proteína por kg (${Math.round(s.prof.kg*1.8)}g/dia para os teus ${s.prof.kg} kg).\n2. Combina 2–3 sessões de **Força/HIIT** com cardio em Zona 2.\n3. Podes anexar um screenshot do **MyFitnessPal** no separador Treinos para eu ajustar o treino ao teu dia!`,
+      workout:findW('HIIT 30/30')
+    };
+  }
+  if(/dor|les[aã]o|cansad|fadig|recuper|joelho|g[eé]meo|anca|lombar/.test(q)){
+    const body=/joelho/.test(q)?'Joelho':/g[eé]meo|aquiles/.test(q)?'Gémeos e Aquiles':/lombar|costas/.test(q)?'Lombar':/isquio/.test(q)?'Isquiotibiais':'Anca e Glúteos';
+    const rec=RECOVER_ROUTINES[body];
+    const w={id:'Recover|'+rec.title,name:rec.title,sport:rec.sport,why:rec.why,intents:['recup'],steps:rec.steps.map(x=>({n:x[0],s:x[1],tip:x[2],z:'recuperação'})),dur:Math.max(5,Math.round(rec.steps.reduce((a,b)=>a+b[1],0)/60))};
+    return{
+      text:`🩹 **Protocolo de Recuperação e Prevenção (${body}):**\nA tua Fadiga atual (ATL) é de **${s.ff.cur.fatigue}** e a Forma (TSB) é **${s.ff.cur.form}**.\n• Reduz o impacto articular nas próximas 48h.\n• Faz já esta rotina guiada de **${rec.title}** focada em mobilidade, controlo excêntrico e descompressão:`,
+      workout:w
+    };
+  }
+  if(/semana|plano|program/.test(q)){
+    return{
+      text:`📅 **Microciclo Semanal Recomendado para Ti (${s.wkKm.toFixed(1)} / ${s.goalKm} km feitos esta semana):**\n• **2.ª feira:** Mobilidade de anca + Core (20 min)\n• **3.ª feira:** Intervalos curtos ou Fartlek (qualidade e VO2 máx)\n• **5.ª feira:** Corrida fácil em Zona 2 + Força Corpo inteiro\n• **Sábado:** Corrida progressiva / Longo para atingir a meta de ${s.goalKm} km\n• **Domingo:** Descanso ou Yoga para pernas de corredor`,
+      workout:findW('Fartlek')
+    };
+  }
+  // Resposta padrão: recomendação do treino de hoje com base em Fitness & Freshness + Meta Semanal + Nutrição
+  const needRec=s.ff.cur.form<-15;
+  const needSpeed=s.ff.cur.form>=0&&s.wkKm>0;
+  const wToday=needRec?findW('Corrida de recuperação'):needSpeed?findW('Intervalos curtos'):findW('Corrida fácil');
+  return{
+    text:`🤖 **Diagnóstico do Teu Personal Trainer para Hoje:**\n• **Estado de Forma (TSB):** ${s.ff.cur.form>0?'+'+s.ff.cur.form:s.ff.cur.form} (${s.ff.status})\n• **Progresso Semanal:** ${s.wkKm.toFixed(1)} km de ${s.goalKm} km (${s.wkCount} atividade${s.wkCount===1?'':'s'})\n• **Conselho para hoje:** ${needRec?'Acumulaste carga importante nos últimos dias. Hoje o foco é recuperação ativa para supercompensares sem risco de lesão.':needSpeed?'Estás com excelente frescura muscular! É o dia ideal para um treino de estímulo de velocidade/ritmo.':'Hoje é ótimo para consolidares a tua base aeróbica e somares quilómetros rumo à tua meta semanal.'}`,
+    workout:wToday
+  };
+}
+
+window.openAICoach=function(){
+  let gm=document.getElementById('gm');if(!gm){gm=document.createElement('div');gm.id='gm';gm.className='ov';document.body.appendChild(gm)}
+  gm.classList.add('on');
+  const s=getAthleteSnap();
+  if(!aiHistory.length){
+    aiHistory=[{role:'ai',text:`Olá, ${ls('kr_name','Atleta')}! 👋 Sou o teu **KeepRun AI Personal Trainer**.\nJá analisei o teu histórico: tens **${acts.length} atividades**, **${s.wkKm.toFixed(1)} / ${s.goalKm} km** esta semana e a tua Forma atual é **${s.ff.cur.form>0?'+'+s.ff.cur.form:s.ff.cur.form}** (${s.ff.status}).\n\nEm que te posso ajudar hoje?`}];
+  }
+
+  const fmtMsg=t=>esc(t).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+  const prompts=[
+    '🏃 Que treino devo fazer hoje?',
+    '📊 Analisa a minha última atividade',
+    '⏱️ Previsão dos meus tempos (5k, 10k, 21k)',
+    '🥗 Ajustar treino às calorias (MyFitnessPal)',
+    '🩹 Sinto fadiga ou dor no joelho/gémeos',
+    '📅 Cria-me um plano para esta semana'
+  ];
+
+  gm.innerHTML=`<div class="gh"><b>🤖 KeepRun AI — Personal Trainer</b><div><button class="btn" id="ai-cfg" style="padding:5px 8px;font-size:12px" title="Configurar chave Gemini opcional">⚙️ IA</button> <button class="btn" id="gx">Fechar</button></div></div>
+    <div class="card" style="padding:10px 12px;margin-bottom:8px;background:#1e293b;border-color:var(--ac)">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px">
+        <span>⚡ <b>Forma:</b> ${s.ff.cur.form>0?'+'+s.ff.cur.form:s.ff.cur.form} (${s.ff.status})</span>
+        <span>🏃 <b>Semana:</b> ${s.wkKm.toFixed(1)} / ${s.goalKm} km</span>
+        <span>🏅 <b>5k est.:</b> ${s.pred5k}</span>
+      </div>
+    </div>
+    <div class="chips" style="margin-bottom:8px">${prompts.map(p=>`<button class="chip" data-ap="${esc(p)}">${esc(p)}</button>`).join('')}</div>
+    <div id="ai-log" style="max-height:48vh;overflow-y:auto;padding:4px 0">
+      ${aiHistory.map((m,idx)=>`<div class="card" style="margin-bottom:8px;background:${m.role==='user'?'#262626':'var(--card)'};border-color:${m.role==='user'?'#404040':'var(--bd)'}">
+        <div class="mu" style="font-size:11px;margin-bottom:4px">${m.role==='user'?'👤 Tu':'🤖 Personal Trainer AI'}</div>
+        <div style="line-height:1.45">${fmtMsg(m.text)}</div>
+        ${m.workout?`<div class="card" style="background:var(--bg);margin:8px 0 0;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div><b>${window.ic?ic(m.workout.sport):'🏃'} ${esc(m.workout.name)}</b><div class="mu">${esc(m.workout.sport)} · ${m.workout.dur} min · ${esc(m.workout.why)}</div></div>
+          <button class="btn pri" data-aiw="${idx}" style="padding:6px 12px;font-size:12px">▶️ Iniciar treino</button>
+        </div>`:''}
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="ai-in" placeholder="Pergunta ao teu Personal Trainer AI (ex.: treino de 30 min, baixar ritmo…)" style="flex:1">
+      <button class="btn pri" id="ai-send">Enviar</button>
+    </div>`;
+
+  const q=s=>gm.querySelector(s),log=q('#ai-log');
+  if(log)log.scrollTop=log.scrollHeight;
+  q('#gx').onclick=()=>gm.classList.remove('on');
+  q('#ai-cfg').onclick=()=>{
+    const k=prompt('Opcional: Cola uma API Key do Google Gemini (AI Studio) para respostas LLM na nuvem, ou deixa em branco para usar o motor AI integrado:',ls('kr_gemini_key',''));
+    if(k!==null){ss('kr_gemini_key',k.trim());toast(k.trim()?'Chave Gemini AI ativa!':'A usar motor AI integrado KeepRun')}
+  };
+  const send=async txt=>{
+    txt=(txt||'').trim();if(!txt)return;
+    aiHistory.push({role:'user',text:txt});
+    const reply=await generateAIReply(txt);
+    aiHistory.push({role:'ai',text:reply.text,workout:reply.workout});
+    aiHistory=aiHistory.slice(-20);setJSON('kr_ai_chat',aiHistory);
+    openAICoach();
+  };
+  q('#ai-send').onclick=()=>send(q('#ai-in').value);
+  q('#ai-in').onkeydown=e=>{if(e.key==='Enter')send(q('#ai-in').value)};
+  gm.querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>send(b.dataset.ap));
+  gm.querySelectorAll('[data-aiw]').forEach(b=>b.onclick=()=>{
+    const m=aiHistory[+b.dataset.aiw];
+    if(m&&m.workout&&window.KRW&&KRW.openW)KRW.openW(m.workout);
+  });
+};
+
+// ---------- 16. Interligação Automática com as Vistas do KeepRun ----------
 const origShow=window.show;
 if(typeof origShow==='function'){
   window.show=function(a){origShow(a);enhanceDetail(a)};
@@ -732,5 +1214,5 @@ if(typeof origRenderWO==='function'){
   window.renderWO=function(){origRenderWO();enhanceWorkouts()};
 }
 setupRecPro();
-window.KRPro={analyzeAct,calcFitnessCurve,getActSegments,getMatchedActs,getAllSegs,getSegEfforts,openSegmentModal,TRAINING_PLANS,RECOVER_ROUTINES};
+window.KRPro={analyzeAct,calcFitnessCurve,getActSegments,getMatchedActs,getAllSegs,getSegEfforts,openSegmentModal,TRAINING_PLANS,RECOVER_ROUTINES,decodePolyline,importStravaCSV,openStravaImport,openStravaProfiles,openAthleteProfile,openAICoach,generateAIReply};
 })();

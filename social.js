@@ -241,26 +241,38 @@ function renderAcct(){const el=$('#acct');if(!el)return;let h='';
   if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);q('#so').onclick=()=>signOut(auth);q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
   bindZone(el)}
 function renderFriends(){const el=$('#friends');if(!el)return;
-  if(state!=='ready'||!user){el.innerHTML=state==='nocfg'?'<div class="card"><b>Amigos</b><p class="mu">Configura o Firebase (ver SETUP.md) para ativar contas e amigos.</p></div>':state==='offline'?'<div class="card"><b>Amigos</b><p class="mu">Sem ligação: os amigos precisam de internet.</p></div>':state==='ready'?'<div class="card"><b>Amigos</b><p class="mu">Entra com a tua conta (separador Eu) para adicionar amigos e ver as suas atividades.</p></div>':'';return}
-  el.innerHTML=`<div class="card"><b>Adicionar amigo</b><p class="mu">O teu código: <b style="color:var(--tx)">${esc(code||'—')}</b> <button class="btn" id="cc">Copiar</button></p>
+  const stravaCard=`<div class="card"><div class="sh" style="margin-bottom:6px"><b>🧡 Perfis Strava & Importação</b></div><p class="mu" style="margin:0 0 10px">Explora perfis de outros atletas no Strava, compara estatísticas frente-a-frente ou importa as tuas atividades do Strava.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="st-prof">👤 Ver Perfis do Strava</button><button class="btn" id="st-imp">📥 Importar do Strava</button><button class="btn" id="st-ai">🤖 Personal Trainer AI</button></div></div>`;
+  if(state!=='ready'||!user){
+    el.innerHTML=stravaCard+(state==='nocfg'?'<div class="card"><b>Amigos KeepRun</b><p class="mu">Configura o Firebase (ver SETUP.md) para ativar contas e amigos.</p></div>':state==='offline'?'<div class="card"><b>Amigos KeepRun</b><p class="mu">Sem ligação: os amigos precisam de internet.</p></div>':state==='ready'?'<div class="card"><b>Amigos KeepRun</b><p class="mu">Entra com a tua conta (separador Eu) para adicionar amigos e ver as suas atividades.</p></div>':'');
+    if(el.querySelector('#st-prof'))el.querySelector('#st-prof').onclick=()=>window.openStravaProfiles&&openStravaProfiles();
+    if(el.querySelector('#st-imp'))el.querySelector('#st-imp').onclick=()=>window.openStravaImport&&openStravaImport();
+    if(el.querySelector('#st-ai'))el.querySelector('#st-ai').onclick=()=>window.openAICoach&&openAICoach();
+    return;
+  }
+  el.innerHTML=stravaCard+`<div class="card"><b>Adicionar amigo KeepRun</b><p class="mu">O teu código: <b style="color:var(--tx)">${esc(code||'—')}</b> <button class="btn" id="cc">Copiar</button></p>
   <div style="display:flex;gap:8px"><input id="fc" placeholder="Código do amigo" maxlength="6" style="flex:1;text-transform:uppercase"><button class="btn pri" id="fa">Adicionar</button></div></div>
   ${inc.length?`<div class="card"><b>Pedidos</b>${inc.map((r,i)=>`<div class="fr"><span>${esc(r.fromName)}</span><span><button class="btn pri" data-a="${i}">Aceitar</button> <button class="btn" data-d="${i}">Recusar</button></span></div>`).join('')}</div>`:''}
-  <div class="card"><b>Amigos (${friends.length})</b>${friends.length?friends.map((f,i)=>`<div class="fr"><span>${esc(f.name)}</span><button class="btn" data-r="${i}">Remover</button></div>`).join(''):'<p class="mu">Ainda sem amigos.</p>'}</div>`;
+  <div class="card"><b>Amigos (${friends.length})</b>${friends.length?friends.map((f,i)=>`<div class="fr"><span data-pf="${i}" style="cursor:pointer;font-weight:600;color:var(--ac)">👤 ${esc(f.name)} <small class="mu">(ver perfil)</small></span><button class="btn" data-r="${i}">Remover</button></div>`).join(''):'<p class="mu">Ainda sem amigos.</p>'}</div>`;
+  if(el.querySelector('#st-prof'))el.querySelector('#st-prof').onclick=()=>window.openStravaProfiles&&openStravaProfiles();
+  if(el.querySelector('#st-imp'))el.querySelector('#st-imp').onclick=()=>window.openStravaImport&&openStravaImport();
+  if(el.querySelector('#st-ai'))el.querySelector('#st-ai').onclick=()=>window.openAICoach&&openAICoach();
   $('#cc').onclick=()=>{try{navigator.clipboard.writeText(code)}catch(e){}toast('Código copiado')};
   $('#fa').onclick=()=>{addFriend($('#fc').value);$('#fc').value=''};
   el.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>accept(+b.dataset.a));
   el.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>decline(+b.dataset.d));
-  el.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>removeF(+b.dataset.r))}
+  el.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>removeF(+b.dataset.r));
+  el.querySelectorAll('[data-pf]').forEach(s=>s.onclick=()=>{const f=friends[+s.dataset.pf];if(f&&window.openAthleteProfile)openAthleteProfile(f.id,f.name)})}
 function fpost(a,i){const pts=[],r=Array.isArray(a.r)?a.r:[];for(let i=0;i+1<r.length;i+=2){const la=Number(r[i]),lo=Number(r[i+1]);if(isFinite(la)&&isFinite(lo))pts.push([la,lo])}
   const d=num(a.dist),el=Math.round(num(a.elev)),du=num(a.dur),ef=Math.min(10,Math.max(0,Math.round(num(a.eff)))),nm=esc(a.fname||'Amigo'),k=(a.soc&&a.soc.k)||[],cm=(a.soc&&a.soc.c)||[];
-  return `<div class="post"><div class="ph"><span class="av">${esc(String(a.fname||'?')[0].toUpperCase())}</span><div class="pm"><b>${nm}</b><div class="mu">${fDT(num(a.date))}</div><div class="mu">${window.ic?ic(String(a.type||'')):'🏃'} ${esc(a.type||'')}</div></div></div>
+  return `<div class="post"><div class="ph" data-fpf="${i}" style="cursor:pointer"><span class="av">${esc(String(a.fname||'?')[0].toUpperCase())}</span><div class="pm"><b>${nm} <small class="mu" style="font-weight:400">· ver perfil</small></b><div class="mu">${fDT(num(a.date))}</div><div class="mu">${window.ic?ic(String(a.type||'')):'🏃'} ${esc(a.type||'')}</div></div></div>
   <h2 style="cursor:default">${esc(a.title||'')}</h2>${ef?`<div class="mu" style="margin:-6px 0 10px">💪 Esforço ${ef}/10</div>`:''}${a.desc?`<p style="margin:0 0 10px">${esc(a.desc)}</p>`:''}
   <div class="ps"><div><span>Distância</span><b>${d?(d/1000).toFixed(2)+' km':'—'}</b></div><div><span>Subida</span><b>${el} m</b></div><div><span>Tempo</span><b>${fTL(du)}</b></div></div>
   ${pts.length>1?`<div class="mapbox" style="cursor:default">${thumb(pts)}</div>`:''}
   <div class="kd">${k.length?`🔥 <b>${k.length} ${k.length===1?'Keep':'Keeps'}</b> · `+k.slice(0,4).map(x=>esc(x.name)).join(', '):'Sê o primeiro a dar um Keep!'}</div>${cm.map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')}
   <div class="ac"><button class="fk ${mineK(a)?'on':''}" data-i="${i}" aria-label="Dar Keep">${(window.KR_IC||{}).thumb||''}<span>${k.length?k.length+' ':''}${k.length===1?'Keep':'Keeps'}</span></button><button class="fc" data-i="${i}" aria-label="Comentar">${(window.KR_IC||{}).chat||''}</button></div></div>`}
 function renderFF(){const el=$('#ff');if(!el)return;el.innerHTML=FA.length?'<h3 style="margin:8px 4px">Amigos</h3>'+FA.map((a,i)=>fpost(a,i)).join(''):'';
+  el.querySelectorAll('[data-fpf]').forEach(p=>{p.onclick=()=>{const a=FA[+p.dataset.fpf];if(a&&window.openAthleteProfile)openAthleteProfile(a.owner,a.fname)}});
   el.querySelectorAll('.fk').forEach(b=>b.onclick=()=>toggleKudos(+b.dataset.i));el.querySelectorAll('.fc').forEach(b=>b.onclick=()=>addComment(+b.dataset.i))}
 function renderAll(){renderAcct();renderFriends();renderFF();renderBell()}
-window.KR_fa=()=>FA;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;
+window.KR_fa=()=>FA;window.KR_friendsList=()=>friends;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;
 init();

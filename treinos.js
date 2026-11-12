@@ -310,8 +310,12 @@ el.querySelectorAll('.wc').forEach(e=>e.onclick=()=>openW(list[+e.dataset.i]));
 const spc=el.querySelector('#spc');if(oldC)spc.scrollLeft=sx;else{const on=spc.querySelector('.on');if(on)spc.scrollLeft=Math.max(0,on.offsetLeft-20)}window.scrollTo(0,oy);
 el.querySelector('#waud').onchange=e=>ss('kr_audio',e.target.checked?'1':'0');renderRoutes()};
 window.renderWP=function(){const el=$('#wp');if(!el)return;const inf=mfpInfo(),p=(inf?inf.plan:picks(intent())).slice(0,3);
-el.innerHTML=`<div class="wpc"><div class="sh"><b>Treinos para ti</b><span><a id="wpmfp" style="margin-right:12px">${inf?esc(inf.badge):'📸 MyFitnessPal'}</a><a id="wpall">Ver todos</a></span></div>${inf?`<div class="mu" style="margin:-4px 0 8px;font-size:12px">${esc(inf.title)} · plano ajustado à tua nutrição</div>`:''}<div class="wph">${p.map((w,i)=>`<div class="wmini" data-i="${i}"><span>${ic(w.sport)}</span><b>${esc(w.name)}</b><small>${esc(w.sport)} · ${w.dur} min · ~${estKcal(w)} kcal</small></div>`).join('')}</div></div>`;
-el.querySelector('#wpmfp').onclick=()=>openMFP();el.querySelector('#wpall').onclick=()=>go('wo');el.querySelectorAll('.wmini').forEach(e=>e.onclick=()=>openW(p[+e.dataset.i]))};
+el.innerHTML=`<div class="wpc"><div class="sh"><b>Treinos para ti</b><span><a id="wpmfp" style="margin-right:12px">${inf?esc(inf.badge):'📸 MyFitnessPal'}</a><a id="wpall">Ver todos</a></span></div><div class="chips" style="margin:-4px 0 10px"><button class="chip" id="wp-ai">🤖 Personal Trainer AI</button><button class="chip" id="wp-st-imp">📥 Importar Strava</button><button class="chip" id="wp-st-prf">👤 Perfis Strava</button></div>${inf?`<div class="mu" style="margin:-2px 0 8px;font-size:12px">${esc(inf.title)} · plano ajustado à tua nutrição</div>`:''}<div class="wph">${p.map((w,i)=>`<div class="wmini" data-i="${i}"><span>${ic(w.sport)}</span><b>${esc(w.name)}</b><small>${esc(w.sport)} · ${w.dur} min · ~${estKcal(w)} kcal</small></div>`).join('')}</div></div>`;
+el.querySelector('#wpmfp').onclick=()=>openMFP();el.querySelector('#wpall').onclick=()=>go('wo');
+if(el.querySelector('#wp-ai'))el.querySelector('#wp-ai').onclick=()=>window.openAICoach&&openAICoach();
+if(el.querySelector('#wp-st-imp'))el.querySelector('#wp-st-imp').onclick=()=>window.openStravaImport&&openStravaImport();
+if(el.querySelector('#wp-st-prf'))el.querySelector('#wp-st-prf').onclick=()=>window.openStravaProfiles&&openStravaProfiles();
+el.querySelectorAll('.wmini').forEach(e=>e.onclick=()=>openW(p[+e.dataset.i]))};
 // avisos de áudio por quilómetro nas gravações
 let lk=0;setInterval(()=>{try{const s=$('#rstop');if(!s||s.classList.contains('hide')){lk=0;return}const c=calc(rp),km=Math.floor(c.dist/1000);
 if(km>lk){lk=km;chime('km')}}catch(e){}},3000);
