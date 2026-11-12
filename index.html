@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="KeepRun">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://*.open-meteo.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'">
 <title>KeepRun</title>
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" onerror="this.onerror=null;this.integrity='sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==';this.crossOrigin='anonymous';this.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'">
 <style>
@@ -230,7 +230,7 @@ $('#q').oninput=renderCards;
 $('#sb').onclick=()=>{go('feed');const b=$('#sbar');b.classList.toggle('hide');if(!b.classList.contains('hide'))$('#q').focus();else{$('#q').value='';renderCards()}};
 $('#chat').onclick=()=>toast('Mensagens chegam com o backend');
 $('#bell').onclick=()=>toast('Sem notificações novas');
-let amap,alay;
+var amap,alay;
 function renderMaps(){if(!window.L){$('#amap').innerHTML='<p class="mu" style="padding:16px">Mapa indisponível sem ligação.</p>';return}if(!amap){amap=L.map('amap').setView([38.72,-9.14],11);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(amap);alay=L.layerGroup().addTo(amap)}
 alay.clearLayers();const all=[];acts.forEach(a=>{if(!a.pts||a.pts.length<2)return;const ll=a.pts.map(p=>[p[0],p[1]]);for(const p of ll)all.push(p);L.polyline(ll,{color:'#fc4c02',weight:3,opacity:.55}).addTo(alay)});
 setTimeout(()=>{amap.invalidateSize();if(all.length)amap.fitBounds(all,{padding:[20,20]})},60)}
@@ -269,7 +269,7 @@ const g=`<?xml version="1.0"?><gpx version="1.1" creator="KeepRun" xmlns="http:/
 a.pts.map(p=>{const d=new Date(p[3]&&isFinite(p[3])&&p[3]>0?p[3]:Date.now()),iso=isFinite(d.getTime())?d.toISOString():new Date().toISOString();return `<trkpt lat="${+p[0]||0}" lon="${+p[1]||0}">${p[2]!=null&&isFinite(+p[2])?`<ele>${+p[2]}</ele>`:''}<time>${iso}</time></trkpt>`}).join('')+'</trkseg></trk></gpx>';
 const u=URL.createObjectURL(new Blob([g],{type:'application/gpx+xml'})),l=document.createElement('a');l.href=u;l.download=String(a.name||'atividade').replace(/[\\/:*?"<>|]/g,'_')+'.gpx';l.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
 // Gravação
-let rmap,rline,wid,tick,rp=[],t0;
+var rmap,rline,wid,tick,rp=[],t0;
 let rwl=null,rrec=false,lastSave=0;
 const wlReq=async()=>{try{rwl=await navigator.wakeLock.request('screen')}catch(e){}};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&rrec)wlReq()});
@@ -360,6 +360,7 @@ if(window.visualViewport)visualViewport.addEventListener('resize',fix);
 </script>
 <script src="anim.js"></script>
 <script src="treinos.js"></script>
+<script src="pro.js"></script>
 <script type="module" src="social.js"></script>
 </body>
 </html>

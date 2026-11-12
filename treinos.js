@@ -358,5 +358,5 @@ g.innerHTML=`<div class="gh"><b>Política de privacidade</b><button class="btn" 
 g.querySelector('#gx').onclick=()=>g.classList.remove('on')};
 window.KR_IC=IC;
 window.animFor=animFor;window.ic=ic;window.KR_extra=a=>(a.eff?`<div class="mu" style="margin:-4px 0 12px">💪 Esforço ${+a.eff}/10 · ${EFF(+a.eff)}${a.workout?' · '+esc(a.workout):''}</div>`:'')+(a.desc?`<p style="margin:0 0 12px">${esc(a.desc)}</p>`:'');
-window.KRW={lib,picks,forSport,SPORTS,parseMFPText,mfpInfo,openMFP};renderWP();if(window.renderCards)renderCards();
+window.KRW={lib,picks,forSport,SPORTS,parseMFPText,mfpInfo,openMFP,openW};renderWP();if(window.renderCards)renderCards();
 })();
