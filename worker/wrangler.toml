@@ -1,0 +1,12 @@
+name = "keeprun-push"
+main = "index.js"
+compatibility_date = "2025-11-01"
+
+[vars]
+FIREBASE_PROJECT = "keeprun-9055e"
+VAPID_PUBLIC = "BFi9RUlmn2JDZWUxI0sIpEsJwDqc6RgOlUAlB1LJYtkC8kJUaineSoo7K_I24fmWHEHIA4SP6GQSKndKNqtbPjE"
+
+# Passo obrigatório antes do deploy: cria o KV namespace `SUBS` e cola o id aqui (ou associa no Dashboard da Cloudflare):
+# [[kv_namespaces]]
+# binding = "SUBS"
+# id = "COLE_AQUI_O_KV_ID"

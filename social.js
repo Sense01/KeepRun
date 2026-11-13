@@ -1,6 +1,50 @@
 // KeepRun: contas (Google ou email) + amigos (Firebase). Usa globais do index.html.
 const V='10.14.1',G='https://www.gstatic.com/firebasejs/'+V+'/';
-const MY={};let state='init',db,auth,app,user=null,code='',friends=[],inc=[],FA=[],cloudNotifs=[],unsubs=[],notifPrimed=false;const notifSeen=new Set();
+const MY={};let cfg=null,state='init',db,auth,app,user=null,code='',friends=[],inc=[],FA=[],cloudNotifs=[],unsubs=[],notifPrimed=false;const notifSeen=new Set();
+const urlB64=s=>{const b=String(s||'').replace(/[\s=]+/g,''),r=b.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((b.length+3)%4);return Uint8Array.from(atob(r),c=>c.charCodeAt(0))};
+const pushBase=()=>cfg&&cfg.pushUrl?String(cfg.pushUrl).replace(/\/+$/,''):'';
+async function syncPushSub(){
+  const base=pushBase();if(!user||!base||!cfg||!cfg.vapidPublicKey||typeof Notification==='undefined'||Notification.permission!=='granted')return false;
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))return false;
+  try{
+    const reg=(await navigator.serviceWorker.getRegistration())||await Promise.race([navigator.serviceWorker.ready,new Promise(r=>setTimeout(r,4000))]);
+    if(!reg||!reg.pushManager)return false;
+    const key=urlB64(cfg.vapidPublicKey);
+    let sub=await reg.pushManager.getSubscription();
+    if(sub&&sub.options&&sub.options.applicationServerKey){
+      const cur=new Uint8Array(sub.options.applicationServerKey);
+      if(cur.length!==key.length||cur.some((v,i)=>v!==key[i])){await sub.unsubscribe().catch(()=>{});sub=null}
+    }
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+    const tok=await user.getIdToken();
+    const res=await fetch(base+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify({subscription:sub.toJSON()})});
+    if(res.ok)ss('kr_push_ok','1');
+    return res.ok;
+  }catch(e){return false}
+}
+async function unsubPush(all){
+  const base=pushBase();if(!user||!base)return;
+  try{
+    const tok=await user.getIdToken();
+    let endpoint='';
+    if(!all&&'serviceWorker' in navigator){
+      const reg=await navigator.serviceWorker.getRegistration();
+      const sub=reg&&reg.pushManager?await reg.pushManager.getSubscription():null;
+      if(sub)endpoint=sub.endpoint;else return;
+    }
+    await fetch(base+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify(endpoint?{endpoint}:{})});
+    ss('kr_push_ok','');
+  }catch(e){}
+}
+async function sendRemotePush(uid,nid,p){
+  const base=pushBase();if(!base||!uid||!user||uid===user.uid)return;
+  try{
+    const msg=formatNotif({...p,actorName:(uname()||'Atleta').slice(0,60),count:1});
+    const url=(p.type==='friend_request'||p.type==='friend_accepted')?'./?tab=groups':(p.entityId?'./?post='+encodeURIComponent(p.entityId):'./');
+    const tok=await user.getIdToken();
+    await fetch(base+'/push',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify({to:uid,type:p.type,entityId:p.entityId||'',title:'KeepRun',body:msg.txt,url,tag:nid||(p.type||'kr'),nid:nid||''})});
+  }catch(e){}
+}
 let GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut,deleteUser,createUser,signInEmail,resetPw;
 let doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit;
 const key=a=>String(a.cloudKey||a.id).replace(/[./]/g,'_');
@@ -11,12 +55,13 @@ const zh=()=>{const z=pz();return z?Math.round(z.lat*1e4)+','+Math.round(z.lon*1
 
 async function init(){
   let c;
-  try{({firebaseConfig:c}=await import('./firebase-config.js'));if(!c.apiKey||c.apiKey.includes('COLE'))throw 0}catch(e){state='nocfg';renderAll();return}
+  try{({firebaseConfig:c}=await import('./firebase-config.js'));if(!c.apiKey||c.apiKey.includes('COLE'))throw 0;cfg=c}catch(e){state='nocfg';renderAll();return}
   try{
     const [A,Au,F]=await Promise.all([import(G+'firebase-app.js'),import(G+'firebase-auth.js'),import(G+'firebase-firestore.js')]);
     ({GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut,deleteUser}=Au);createUser=Au.createUserWithEmailAndPassword;signInEmail=Au.signInWithEmailAndPassword;resetPw=Au.sendPasswordResetEmail;
     ({doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit}=F);
     app=A.initializeApp(c);auth=Au.getAuth(app);db=F.getFirestore(app);state='ready';Au.onAuthStateChanged(auth,onUser);
+    if(typeof location!=='undefined'){const qp=new URLSearchParams(location.search);if(qp.get('post')||qp.get('tab')==='groups'){navNotif(qp.get('post')?'post_comment':'friend_request',qp.get('post')||'');try{history.replaceState(null,'',location.pathname)}catch(e){}}}
   }catch(e){state='offline'}
   renderAll();
 }
@@ -28,7 +73,8 @@ async function onUser(u){
     const prev=ls('kr_uid','');if(prev&&prev!==u.uid){ss('kr_share','0');ss('kr_name',uname().split(' ')[0]);ss('kr_strava_tok','');ss('kr_gemini_key','')}
     ss('kr_uid',u.uid);
     try{await ensureUser();listen()}catch(e){toast('Erro ao preparar a conta')}
-    if(ls('kr_name','')==='')ss('kr_name',uname().split(' ')[0]);hello()}
+    if(ls('kr_name','')==='')ss('kr_name',uname().split(' ')[0]);hello();
+    if(typeof Notification!=='undefined'&&Notification.permission==='granted')syncPushSub().then(ok=>{if(ok)renderAcct()})}
   renderAll();KR_sync();
 }
 const gen=()=>{const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',b=new Uint32Array(6);crypto.getRandomValues(b);return Array.from(b,x=>ch[x%ch.length]).join('')};
@@ -310,7 +356,8 @@ const countUnread=(list,seen)=>list.filter(x=>x.id?!x.read:(x.req||x.t>seen)).le
 const notifs=()=>mergeNotifs(cloudNotifs,MY,acts,inc,user?user.uid:'');
 const emitNotif=(uid,nid,p)=>{
   if(!uid||!user||uid===user.uid||state!=='ready')return;
-  return setDoc(doc(db,'users',uid,'notifications',nid),{...p,actorId:user.uid,actorName:(uname()||'Atleta').slice(0,60),count:1,read:false,t:Date.now()}).catch(()=>{});
+  const w=setDoc(doc(db,'users',uid,'notifications',nid),{...p,actorId:user.uid,actorName:(uname()||'Atleta').slice(0,60),count:1,read:false,t:Date.now()}).catch(()=>{});
+  return w.then(()=>sendRemotePush(uid,nid,p)).catch(()=>{});
 };
 async function fireAlert(item){
   const f=formatNotif(item);
@@ -327,11 +374,14 @@ async function fireAlert(item){
   }catch(e){}
 }
 async function enableAlerts(){
-  if(typeof Notification==='undefined'){toast('Alertas requerem browser compatível ou PWA no Ecrã Principal.');return}
+  if(typeof Notification==='undefined'){toast('No iPhone, adiciona primeiro ao Ecrã Principal (Partilhar › Adicionar ao Ecrã Principal) para ativar push.');return}
   if(Notification.permission==='denied'){toast('Alertas bloqueados nas definições do navegador.');return}
   const p=Notification.permission==='granted'?'granted':await Notification.requestPermission();
-  if(p==='granted'){toast('Alertas ativos gratuitamente!');renderAcct();const nv=document.getElementById('nv');if(nv&&nv.classList.contains('on'))showNotifs(notifs())}
-  else toast('Permissão de alertas recusada.');
+  if(p==='granted'){
+    const ok=await syncPushSub();
+    toast(!pushBase()?'Alertas locais ativos! Configura pushUrl para receber no ecrã bloqueado.':ok?'Notificações Push ativas (ecrã bloqueado e principal)!':'Alertas locais ativos, mas falhou o registo Push remoto.');
+    renderAcct();const nv=document.getElementById('nv');if(nv&&nv.classList.contains('on'))showNotifs(notifs());
+  }else toast('Permissão de alertas recusada.');
 }
 async function markRead(ids){
   const arr=(Array.isArray(ids)?ids:[ids]).filter(Boolean);if(!user||!arr.length)return;
@@ -450,6 +500,7 @@ async function wipe(){
     for(const f of friends){await deleteDoc(doc(db,'users',me,'friends',f.id)).catch(()=>{});await deleteDoc(doc(db,'users',f.id,'friends',me)).catch(()=>{})}
     for(const k of ['from','to']){const rs=await getDocs(query(collection(db,'requests'),where(k,'==',me)));for(const d of rs.docs)await deleteDoc(d.ref)}
     try{const sn=await getDocs(collection(db,'users',me,'notifications'));for(const d of sn.docs)await deleteDoc(d.ref)}catch(e){}
+    await Promise.race([unsubPush(true),new Promise(r=>setTimeout(r,1500))]);
     if(code)await deleteDoc(doc(db,'codes',code)).catch(()=>{});
     await deleteDoc(doc(db,'users',me)).catch(()=>{});ss('kr_synced_'+me,'[]');ss('kr_strava_tok','');ss('kr_gemini_key','');
     try{await deleteUser(user);toast('Dados e conta apagados')}catch(e){ss('kr_wipe_'+me,'1');await signOut(auth);toast('Dados apagados. Entra de novo para concluir a eliminação da conta.')}
@@ -469,14 +520,14 @@ function renderAcct(){const el=$('#acct');if(!el)return;let h='';
   else if(state==='init')h=sub('A carregar…');
   else if(!user)h=`<div class="card"><b>Conta</b><p class="mu">Entra para sincronizar e adicionar amigos. Ao entrares, aceitas a <a id="pv2" style="color:var(--ac);cursor:pointer">política de privacidade</a>.</p><button class="btn pri" id="gl">Entrar com Google</button> <button class="btn" id="em-t">Entrar com email</button>
     <div id="em" class="hide"><input id="em-e" type="email" placeholder="Email" style="width:100%;margin-top:10px"><input id="em-p" type="password" placeholder="Palavra-passe (mín. 6)" style="width:100%;margin-top:8px"><p><button class="btn pri" id="em-in">Entrar</button> <button class="btn" id="em-new">Criar conta</button> <button class="btn" id="em-rs">Recuperar palavra-passe</button></p></div></div>`;
-  else{const sh=ls('kr_share','1')==='1',pOn=typeof Notification!=='undefined'&&Notification.permission==='granted';
+  else{const sh=ls('kr_share','1')==='1',pOn=typeof Notification!=='undefined'&&Notification.permission==='granted',pLabel=pOn?(pushBase()&&ls('kr_push_ok','')==='1'?'🔔 Push ativo':'🔔 Alertas ativos'):'🔕 Ativar alertas';
     h=`<div class="card"><b>${esc(uname())}</b><div class="mu">${esc(user.email||'')}</div><p class="mu">Código de amigo: <b style="color:var(--tx)">${esc(code||'—')}</b></p>
-    <label><input type="checkbox" id="sh" ${sh?'checked':''}> Partilhar e sincronizar atividades na nuvem</label><p style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="sy-now">🔄 Sincronizar agora</button>${typeof Notification!=='undefined'?`<button class="btn" id="psh-btn">${pOn?'🔔 Alertas ativos':'🔕 Ativar alertas'}</button>`:''}<button class="btn" id="so">Terminar sessão</button> <button class="btn" id="wp-del">Apagar os meus dados na nuvem</button></p></div>`}
+    <label><input type="checkbox" id="sh" ${sh?'checked':''}> Partilhar e sincronizar atividades na nuvem</label><p style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="sy-now">🔄 Sincronizar agora</button><button class="btn" id="psh-btn">${pLabel}</button><button class="btn" id="so">Terminar sessão</button> <button class="btn" id="wp-del">Apagar os meus dados na nuvem</button></p></div>`}
   el.innerHTML=h+renderZone();
   const q=x=>el.querySelector(x);
   if(q('#pv2'))q('#pv2').onclick=()=>window.KR_policy&&KR_policy();
   if(q('#gl')){q('#gl').onclick=login;q('#em-t').onclick=()=>q('#em').classList.toggle('hide');q('#em-in').onclick=()=>emailAuth('in');q('#em-new').onclick=()=>emailAuth('new');q('#em-rs').onclick=()=>emailAuth('reset')}
-  if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);if(q('#psh-btn'))q('#psh-btn').onclick=()=>enableAlerts();q('#so').onclick=()=>{ss('kr_strava_tok','');ss('kr_gemini_key','');signOut(auth)};q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
+  if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);if(q('#psh-btn'))q('#psh-btn').onclick=()=>enableAlerts();q('#so').onclick=async()=>{ss('kr_strava_tok','');ss('kr_gemini_key','');await Promise.race([unsubPush(false),new Promise(r=>setTimeout(r,1500))]);signOut(auth)};q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
   bindZone(el)}
 function renderFriends(){const el=$('#friends');if(!el)return;
   const stravaCard=`<div class="card"><div class="sh" style="margin-bottom:6px"><b>🧡 Perfis Strava & Importação</b></div><p class="mu" style="margin:0 0 10px">Explora perfis de outros atletas no Strava, compara estatísticas frente-a-frente ou importa as tuas atividades do Strava.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="st-prof">👤 Ver Perfis do Strava</button><button class="btn" id="st-imp">📥 Importar do Strava</button></div></div>`;
@@ -512,7 +563,7 @@ function renderFF(){const el=$('#ff');if(!el)return;el.innerHTML=FA.length?'<h3 
   el.querySelectorAll('[data-fcm]').forEach(c=>c.onclick=()=>{const p=FA[+c.dataset.fcm];if(p)openComments({kind:'friend',p},false)});
   el.querySelectorAll('.fk').forEach(b=>b.onclick=()=>toggleKudos(+b.dataset.i));el.querySelectorAll('.fc').forEach(b=>b.onclick=()=>{const p=FA[+b.dataset.i];if(p)openComments({kind:'friend',p},true)})}
 function renderAll(){renderAcct();renderFriends();renderFF();renderBell()}
-window.KR_fa=()=>FA;window.KR_friendsList=()=>friends;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;window.KR_notifs={formatNotif,mergeNotifs,countUnread,buildComments};
+window.KR_fa=()=>FA;window.KR_friendsList=()=>friends;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;window.KR_notifs={formatNotif,mergeNotifs,countUnread,buildComments,urlB64};
 if(typeof navigator!=='undefined'&&navigator.serviceWorker){navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='KR_NOTIF'&&e.data.data){const d=e.data.data;if(d.nid)markRead(d.nid);navNotif(d.type,d.entityId)}})}
 if(typeof location!=='undefined'){try{const sp=new URLSearchParams(location.search);if(sp.get('tab')==='groups'||sp.get('post')){const tab=sp.get('tab'),pid=sp.get('post');history.replaceState(null,'',location.pathname);navNotif(tab==='groups'?'friend_request':'post_comment',pid||'')}}catch(e){}}
 init();

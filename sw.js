@@ -1,5 +1,5 @@
 // Service worker: rede primeiro para os ficheiros da app, cache-primeiro para as bibliotecas externas fixas e mosaicos de mapa.
-const C = 'keeprun-v25', T = 'keeprun-tiles-v1';
+const C = 'keeprun-v26', T = 'keeprun-tiles-v1';
 const CORE = ['./', 'index.html', 'social.js', 'treinos.js', 'pro.js', 'anim.js', 'firebase-config.js', 'manifest.webmanifest', 'icon-192.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css'];
 const EXT = ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'];
 const CDN = ['cdnjs.cloudflare.com', 'www.gstatic.com', 'cdn.jsdelivr.net'];
@@ -31,15 +31,17 @@ self.addEventListener('fetch', e => {
 });
 
 self.addEventListener('push', e => {
-  if (!e.data) return;
   let p = {};
-  try { p = e.data.json(); } catch (err) { p = { notification: { body: e.data.text() } }; }
+  if (e.data) {
+    try { p = e.data.json(); } catch (err) { p = { notification: { body: e.data.text() } }; }
+  }
   const n = p.notification || {};
   const d = p.data || {};
+  const ic = new URL('icon-192.png', self.registration.scope).href;
   e.waitUntil(self.registration.showNotification(n.title || 'KeepRun', {
-    body: n.body || '',
-    icon: './icon-192.png',
-    badge: './icon-192.png',
+    body: n.body || 'Tens uma nova interação na KeepRun',
+    icon: ic,
+    badge: ic,
     tag: d.tag || 'kr-notif',
     renotify: true,
     data: { url: d.url || './', type: d.type || '', entityId: d.entityId || '', nid: d.nid || '' }

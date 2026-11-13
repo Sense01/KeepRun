@@ -106,4 +106,13 @@ const cmFriend=buildComments(
 );
 assert(cmFriend.length===2&&cmFriend[0].canDel===true&&cmFriend[1].canDel===false&&cmFriend[1].liked===false,'em post de amigo só pode apagar o próprio comentário');
 
+// Teste H: Chave pública VAPID (firebase-config.js) descodificada para ECDSA P-256 uncompressed (65 bytes, prefixo 0x04)
+if(typeof globalThis.atob!=='function'){
+  globalThis.atob=s=>{const A='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';let b=0,l=0,o='';for(const ch of String(s).replace(/=+$/,'')){const i=A.indexOf(ch);if(i<0)continue;b=(b<<6)|i;l+=6;if(l>=8){l-=8;o+=String.fromCharCode((b>>l)&255)}}return o};
+}
+const cfgSrc=read('firebase-config.js'),vm=cfgSrc.match(/vapidPublicKey:\s*"([^"]+)"/);
+assert(vm&&vm[1],'vapidPublicKey presente em firebase-config.js');
+const vRaw=globalThis.KR_notifs.urlB64(vm[1]);
+assert(vRaw instanceof Uint8Array&&vRaw.length===65&&vRaw[0]===4,'urlB64 descodifica VAPID_PUBLIC P-256 para 65 bytes 0x04');
+
 console.log('OK: Todos os testes passaram.');

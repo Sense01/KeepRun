@@ -11,10 +11,14 @@
 
 O plano gratuito (Spark) chega para uso pessoal, feed e amigos.
 
-## Notificações em tempo real (100% grátis no plano Spark)
-- As notificações (pedidos enviados, pedidos aceites, Keeps e comentários) são entregues em tempo real na coleção `users/{uid}/notifications`, com estado lido/não lido sincronizado e **sem precisar de plano Blaze nem cartão de crédito**.
-- Basta colar o conteúdo de `firestore.rules` em **Firestore Database > Regras** e clicar em **Publicar**.
-- Com a app aberta em segundo plano (ou adicionada ao **Ecrã Principal** no iPhone iOS 16.4+), toca em **🔔 Ativar alertas** para receber avisos do sistema quando chegar uma interação nova. (Nota: notificações remotas com a app totalmente fechada e ecrã bloqueado exigem um servidor externo com chave privada; no Spark gratuito o sino atualiza em tempo real mal abres ou resumes a app.)
+## Notificações em tempo real e Push no iPhone (0 €, sem cartão de crédito)
+- **Na app (Firebase Spark gratuito):** As notificações (pedidos enviados, pedidos aceites, Keeps e comentários) são entregues em tempo real na coleção `users/{uid}/notifications`, com estado lido/não lido sincronizado. Cola `firestore.rules` em **Firestore Database > Regras** e clica em **Publicar**.
+- **No ecrã bloqueado / menu principal do iPhone (Cloudflare Workers Free, 0 €):** A pasta `worker/` envia Web Push W3C direto para a Apple/Google (100 000 pedidos/dia grátis, sem cartão):
+  1. Cria conta gratuita em https://dash.cloudflare.com e instala o Wrangler localmente (`npx wrangler login`) **ou** cria o Worker diretamente no painel Cloudflare (**Workers & Pages > Create > Create Worker**, cola `worker/index.js`).
+  2. Em **Storage & Databases > KV**, cria um namespace chamado `SUBS`. Se usares Terminal, descomenta `[[kv_namespaces]]` em `worker/wrangler.toml` com o `id` devolvido por `npx wrangler kv namespace create SUBS`; no painel web, associa-o em **Settings > Bindings** com o nome `SUBS`.
+  3. Define as variáveis de texto `FIREBASE_PROJECT` (`keeprun-9055e`) e `VAPID_PUBLIC` (valor em `worker/wrangler.toml`) e adiciona o **Secret** encriptado `VAPID_PRIVATE` (via `npx wrangler secret put VAPID_PRIVATE` na pasta `worker/` ou em **Settings > Variables and Secrets > Secret** — **nunca** faças commit da `VAPID_PRIVATE` no GitHub).
+  4. Faz deploy (`npx wrangler deploy` na pasta `worker/` ou **Deploy** no painel) e copia o URL `https://keeprun-push.<teu-subdominio>.workers.dev` para o campo `pushUrl` em `firebase-config.js` (faz commit e push para o GitHub Pages).
+  5. **No iPhone (iOS 16.4+):** abre o site no Safari, toca em **Partilhar › Adicionar ao Ecrã Principal**, abre a app pelo ícone do Ecrã Principal, entra na tua conta (**Eu**) e toca em **🔔 Ativar alertas**.
 
 ## Privacidade (o que é e não é garantido)
 - Só os amigos aceites veem as tuas atividades. Cada pessoa decide o que partilha, e remover um amigo corta o acesso dos dois lados.
