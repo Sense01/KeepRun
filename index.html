@@ -77,7 +77,7 @@ main>section:not(.hide){animation:fi .3s ease both}
 .act{animation:fi .35s both;transition:transform .15s,box-shadow .15s,border-color .15s}.act:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.4)}
 @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:899px){main{padding-bottom:104px}#tabs button{font-size:11px}body{min-height:calc(100vh + 2px);min-height:calc(100dvh + 2px)}}
-@media(min-width:900px){#tabs{top:0;bottom:auto;right:auto;height:100vh;width:210px;flex-direction:column;justify-content:flex-start;border-top:0;border-right:1px solid var(--bd);padding:74px 12px 12px;gap:6px}
+@media(min-width:900px){#tabs{top:0;bottom:auto;right:auto;height:100vh;width:210px;flex-direction:column;justify-content:flex-start;border-top:0;border-right:1px solid var(--bd);padding:74px 12px 12px;gap:6px;overflow-y:auto}
 #tabs button{flex:none;flex-direction:row;gap:12px;font-size:14px;font-weight:600;padding:11px 14px;justify-content:flex-start}
 #tabs button.on{background:linear-gradient(90deg,rgba(252,76,2,.2),rgba(252,76,2,.04));box-shadow:inset 3px 0 0 var(--ac)}
 main{margin:0 auto 0 210px;max-width:1000px}#amap{height:calc(100dvh - 210px)}}
@@ -111,8 +111,8 @@ main{margin:0 auto 0 210px;max-width:1000px}#amap{height:calc(100dvh - 210px)}}
 .cg{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center;margin-top:10px}.cg u{text-decoration:none;color:var(--mu);font-size:12px}
 .cg span{padding:6px 0;border-radius:50%;font-size:13px}.cg span.on{background:linear-gradient(135deg,var(--ac),var(--ac2));font-weight:700}
 .fr{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--bd)}
-html,body{touch-action:manipulation;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent;background:var(--bg);overflow-x:hidden}
-body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+html,body{touch-action:manipulation;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent;background:var(--bg)}
+body{overflow-x:hidden;overflow-x:clip;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 input,select,textarea{font-size:16px!important;-webkit-user-select:text;user-select:text}
 /* Ecrã de gravação estilo Strava */
 #rec{max-width:520px;margin:0 auto}
