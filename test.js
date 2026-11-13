@@ -9,7 +9,6 @@ assert(m&&m[1],'Bloco script principal em index.html');
 new Function(m[1]);
 ['treinos.js','pro.js','anim.js','sw.js'].forEach(f=>new Function(read(f)));
 new Function(read('social.js').replace(/export /g,'').replace(/import\(/g,'Promise.resolve('));
-new Function('require','exports',read('functions/index.js'));
 
 // 2) Ambiente mínimo para testar parsers, métricas e limpeza de dados
 const store={};
@@ -83,5 +82,11 @@ assert(merged.length===2&&merged[0].entityId==='u4'&&merged[1].id==='like_42','m
 assert(countUnread(merged,0)===2,'countUnread conta pedidos e notificações por ler');
 merged[1].read=true;
 assert(countUnread(merged,0)===1,'countUnread reduz após marcar lida');
+const colSpark=mergeNotifs([
+  {id:'like_42_u1',type:'post_like',actorName:'Ana',entityId:'42',postTitle:'Treino Longo',count:1,read:false,t:100},
+  {id:'like_42_u2',type:'post_like',actorName:'Rui',entityId:'42',postTitle:'Treino Longo',count:1,read:false,t:250},
+  {id:'like_42_u3',type:'post_like',actorName:'Inês',entityId:'42',postTitle:'Treino Longo',count:1,read:true,t:50}
+],{},actsSocial,[],'me');
+assert(colSpark.length===2&&colSpark[0].count===2&&colSpark[0].ids.length===2&&colSpark[0].txt.includes('Rui e mais 1'),'mergeNotifs colapsa múltiplos Keeps não lidos no Spark mantendo os já lidos separados');
 
 console.log('OK: Todos os testes passaram.');

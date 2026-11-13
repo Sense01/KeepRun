@@ -30,24 +30,43 @@ service cloud.firestore {
         allow delete: if me(uid) || me(fid);
       }
 
-      // Notificacoes em tempo real (escritas apenas por Cloud Functions Admin SDK).
+      // Notificacoes em tempo real (Spark 100% gratuito: apenas remetentes/amigos autorizados escrevem; so o destinatario le).
       match /notifications/{nid} {
-        allow read, delete: if me(uid);
-        allow update: if me(uid)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
-          && request.resource.data.read is bool;
-        allow create: if false;
-      }
-
-      // Tokens FCM para Push Notifications por dispositivo.
-      match /tokens/{tid} {
-        allow read, delete: if me(uid);
-        allow create, update: if me(uid)
-          && tid.size() >= 8 && tid.size() <= 64
-          && request.resource.data.keys().hasOnly(['token', 'ua', 't'])
-          && request.resource.data.token is string && request.resource.data.token.size() >= 20 && request.resource.data.token.size() <= 512
-          && request.resource.data.ua is string && request.resource.data.ua.size() <= 40
-          && request.resource.data.t is number;
+        function validNotif(d) {
+          return signedIn() && request.auth.uid != uid
+            && d.keys().hasOnly(['type', 'actorId', 'actorName', 'entityType', 'entityId', 'postTitle', 'text', 'count', 'read', 't'])
+            && d.actorId == request.auth.uid
+            && d.actorName is string && d.actorName.size() > 0 && d.actorName.size() <= 60
+            && d.entityType is string && d.entityType.size() <= 20
+            && d.entityId is string && d.entityId.matches('[^/]{1,100}')
+            && d.postTitle is string && d.postTitle.size() <= 80
+            && d.text is string && d.text.size() <= 200
+            && d.count == 1 && d.read == false && d.t is number
+            && (
+              (d.type == 'friend_request' && d.entityType == 'friendship' && d.entityId == request.auth.uid
+                && nid == 'req_' + request.auth.uid
+                && exists(/databases/$(database)/documents/requests/$(uid + '_' + request.auth.uid)))
+              || (d.type == 'friend_accepted' && d.entityType == 'friendship' && d.entityId == request.auth.uid
+                && nid == 'acc_' + request.auth.uid
+                && (exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(uid))
+                  || exists(/databases/$(database)/documents/requests/$(request.auth.uid + '_' + uid))))
+              || (d.type == 'post_like' && d.entityType == 'post'
+                && nid == 'like_' + d.entityId + '_' + request.auth.uid
+                && canSee(uid)
+                && exists(/databases/$(database)/documents/activities/$(uid)/items/$(d.entityId)))
+              || (d.type == 'post_comment' && d.entityType == 'post'
+                && nid.size() >= 6 && nid.size() <= 160 && nid.matches('cmt_.*')
+                && canSee(uid)
+                && exists(/databases/$(database)/documents/activities/$(uid)/items/$(d.entityId)))
+            );
+        }
+        allow read: if me(uid);
+        allow create: if validNotif(request.resource.data);
+        allow update: if (me(uid)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+            && request.resource.data.read is bool)
+          || (signedIn() && resource.data.actorId == request.auth.uid && validNotif(request.resource.data));
+        allow delete: if me(uid) || (signedIn() && resource.data.actorId == request.auth.uid);
       }
     }
 

@@ -1,6 +1,6 @@
 // KeepRun: contas (Google ou email) + amigos (Firebase). Usa globais do index.html.
 const V='10.14.1',G='https://www.gstatic.com/firebasejs/'+V+'/';
-const MY={};let state='init',db,auth,app,cfg=null,user=null,code='',friends=[],inc=[],FA=[],cloudNotifs=[],unsubs=[];
+const MY={};let state='init',db,auth,app,user=null,code='',friends=[],inc=[],FA=[],cloudNotifs=[],unsubs=[],notifPrimed=false;const notifSeen=new Set();
 let GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut,deleteUser,createUser,signInEmail,resetPw;
 let doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit;
 const key=a=>String(a.cloudKey||a.id).replace(/[./]/g,'_');
@@ -13,7 +13,6 @@ async function init(){
   let c;
   try{({firebaseConfig:c}=await import('./firebase-config.js'));if(!c.apiKey||c.apiKey.includes('COLE'))throw 0}catch(e){state='nocfg';renderAll();return}
   try{
-    cfg=c;
     const [A,Au,F]=await Promise.all([import(G+'firebase-app.js'),import(G+'firebase-auth.js'),import(G+'firebase-firestore.js')]);
     ({GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut,deleteUser}=Au);createUser=Au.createUserWithEmailAndPassword;signInEmail=Au.signInWithEmailAndPassword;resetPw=Au.sendPasswordResetEmail;
     ({doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit}=F);
@@ -23,13 +22,12 @@ async function init(){
 }
 addEventListener('online',()=>{if(state==='offline')init()});
 async function onUser(u){
-  unsubs.forEach(f=>f());unsubs=[];friends=[];inc=[];FA=[];cloudNotifs=[];user=u;code='';for(const k in MY)delete MY[k];
+  unsubs.forEach(f=>f());unsubs=[];friends=[];inc=[];FA=[];cloudNotifs=[];notifPrimed=false;notifSeen.clear();user=u;code='';for(const k in MY)delete MY[k];
   if(u){
     if(ls('kr_wipe_'+u.uid,'')==='1'){ss('kr_wipe_'+u.uid,'');try{await deleteUser(u);toast('Dados e conta apagados')}catch(e){await signOut(auth)}renderAll();return}
     const prev=ls('kr_uid','');if(prev&&prev!==u.uid){ss('kr_share','0');ss('kr_name',uname().split(' ')[0]);ss('kr_strava_tok','');ss('kr_gemini_key','')}
     ss('kr_uid',u.uid);
     try{await ensureUser();listen()}catch(e){toast('Erro ao preparar a conta')}
-    if(typeof Notification!=='undefined'&&Notification.permission==='granted')syncPush(false);
     if(ls('kr_name','')==='')ss('kr_name',uname().split(' ')[0]);hello()}
   renderAll();KR_sync();
 }
@@ -86,7 +84,10 @@ function listen(){
     s.docs.forEach(async d=>{const r=d.data();try{const u=await getDoc(doc(db,'users',r.to));
       await setDoc(doc(db,'users',me,'friends',r.to),{name:String((u.data()||{}).name||'Amigo').slice(0,60),t:Date.now()});await deleteDoc(d.ref)}catch(e){}})}));
   unsubs.push(onSnapshot(query(collection(db,'users',me,'notifications'),orderBy('t','desc'),limit(40)),s=>{
-    cloudNotifs=s.docs.map(d=>({id:d.id,...d.data()}));renderBell();
+    cloudNotifs=s.docs.map(d=>({id:d.id,...d.data()}));
+    if(!notifPrimed){notifPrimed=true;cloudNotifs.forEach(x=>notifSeen.add(x.id))}
+    else{s.docChanges().forEach(ch=>{if(ch.type==='added'&&!notifSeen.has(ch.doc.id)){notifSeen.add(ch.doc.id);const d=ch.doc.data();if(d&&d.read!==true)fireAlert({id:ch.doc.id,...d})}})}
+    renderBell();
     const nv=document.getElementById('nv');if(nv&&nv.classList.contains('on'))showNotifs(notifs());
   },()=>{}));
 }
@@ -136,13 +137,22 @@ async function toggleKudos(i){const p=FA[i];if(!p||!user)return;
   if(now)p.soc.k.unshift({uid:user.uid,name:uname().slice(0,60),t:Date.now()});
   renderFF();toast(now?'🔥 Deste um Keep!':'Keep removido');
   if(state==='ready'){
-    const r=doc(db,'activities',p.owner,'items',p.aid,'kudos',user.uid);
-    try{now?await setDoc(r,{name:uname().slice(0,60),t:Date.now()}):await deleteDoc(r);p.soc=await loadSoc(p.owner,p.aid);renderFF()}catch(e){}
+    const r=doc(db,'activities',p.owner,'items',p.aid,'kudos',user.uid),nid='like_'+p.aid+'_'+user.uid;
+    try{
+      await(now?setDoc(r,{name:uname().slice(0,60),t:Date.now()}):deleteDoc(r));
+      if(p.owner!==user.uid){now?emitNotif(p.owner,nid,{type:'post_like',entityType:'post',entityId:p.aid,postTitle:String(p.title||'atividade').slice(0,80),text:''}):deleteDoc(doc(db,'users',p.owner,'notifications',nid)).catch(()=>{})}
+      p.soc=await loadSoc(p.owner,p.aid);renderFF();
+    }catch(e){}
   }
 }
 async function addComment(i){const p=FA[i];if(!p)return;const t=prompt('Comentário');if(!t||!t.trim())return;
-  try{await setDoc(doc(collection(db,'activities',p.owner,'items',p.aid,'comments')),{uid:user.uid,name:uname().slice(0,60),text:t.trim().slice(0,200),t:Date.now()});p.soc=await loadSoc(p.owner,p.aid);renderFF()}catch(e){toast('Erro')}}
-// ---- notificações em tempo real + Push (FCM) ----
+  const txt=t.trim().slice(0,200),cRef=doc(collection(db,'activities',p.owner,'items',p.aid,'comments'));
+  try{
+    await setDoc(cRef,{uid:user.uid,name:uname().slice(0,60),text:txt,t:Date.now()});
+    if(p.owner!==user.uid)emitNotif(p.owner,'cmt_'+p.aid+'_'+cRef.id,{type:'post_comment',entityType:'post',entityId:p.aid,postTitle:String(p.title||'atividade').slice(0,80),text:txt});
+    p.soc=await loadSoc(p.owner,p.aid);renderFF();
+  }catch(e){toast('Erro')}}
+// ---- notificações em tempo real (100% Spark gratuito) ----
 const formatNotif=x=>{
   const nm=x.actorName||'Atleta',pt=x.postTitle||'atividade',cnt=Number(x.count)||1;
   let txt=x.txt||'';
@@ -153,51 +163,64 @@ const formatNotif=x=>{
     else if(x.type==='post_comment')txt=`${nm} comentou "${pt}": ${x.text||''}`;
     else txt=`${nm} interagiu contigo`;
   }
-  return{id:x.id||'',t:num(x.t),read:x.read===true,type:x.type||'',entityId:x.entityId||'',req:x.type==='friend_request',txt};
+  return{id:x.id||'',t:num(x.t),read:x.read===true,type:x.type||'',entityId:x.entityId||'',actorName:nm,postTitle:pt,count:cnt,req:x.type==='friend_request',txt};
 };
 function mergeNotifs(cloud,myMap,actsList,incList,uid){
-  const out=cloud.map(formatNotif);
+  const out=[],likes=new Map();
+  for(const raw of (cloud||[])){
+    const x=formatNotif(raw),ids=x.id?[x.id]:[];
+    if(x.type==='post_like'&&x.entityId){
+      const gk=x.entityId+'|'+(x.read?1:0),prev=likes.get(gk);
+      if(prev){
+        prev.count+=x.count||1;if(ids.length)prev.ids.push(...ids);
+        if(x.t>=prev.t){prev.t=x.t;prev.actorName=x.actorName;prev.id=x.id||prev.id}
+        prev.txt=formatNotif({...prev,txt:''}).txt;continue;
+      }
+      const grp={...x,ids};likes.set(gk,grp);out.push(grp);
+    }else out.push({...x,ids});
+  }
   const reqCov=new Set(out.filter(x=>x.type==='friend_request').map(x=>x.entityId));
-  incList.forEach(r=>{if(!reqCov.has(r.from))out.push({id:'',t:num(r.t),read:false,type:'friend_request',entityId:r.from,req:true,txt:`${r.fromName} quer ser teu amigo`})});
+  incList.forEach(r=>{if(!reqCov.has(r.from))out.push({id:'',ids:[],t:num(r.t),read:false,type:'friend_request',entityId:r.from,req:true,txt:`${r.fromName} quer ser teu amigo`})});
   if(!cloud.length){
     for(const [k,m] of Object.entries(myMap||{})){
       const a=actsList.find(x=>key(x)===k);if(!a)continue;
-      m.k.forEach(x=>{if(!uid||x.uid!==uid)out.push({id:'',t:x.t,read:false,type:'post_like',entityId:k,req:false,txt:`${x.name} deu um Keep a "${a.name}"`})});
-      m.c.forEach(c=>{if(c.uid!==uid)out.push({id:'',t:c.t,read:false,type:'post_comment',entityId:k,req:false,txt:`${c.name} comentou "${a.name}": ${c.text}`})});
+      m.k.forEach(x=>{if(!uid||x.uid!==uid)out.push({id:'',ids:[],t:x.t,read:false,type:'post_like',entityId:k,req:false,txt:`${x.name} deu um Keep a "${a.name}"`})});
+      m.c.forEach(c=>{if(c.uid!==uid)out.push({id:'',ids:[],t:c.t,read:false,type:'post_comment',entityId:k,req:false,txt:`${c.name} comentou "${a.name}": ${c.text}`})});
     }
   }
   return out.sort((a,b)=>b.t-a.t);
 }
 const countUnread=(list,seen)=>list.filter(x=>x.id?!x.read:(x.req||x.t>seen)).length;
 const notifs=()=>mergeNotifs(cloudNotifs,MY,acts,inc,user?user.uid:'');
-let msgMod=null;
-async function syncPush(ask){
-  if(!user||state!=='ready'||!app)return;
-  if(typeof Notification==='undefined'||!('serviceWorker' in navigator)||!('PushManager' in window)){
-    if(ask)toast('Push requer PWA instalada no Ecrã Principal ou browser compatível.');return;
-  }
-  if(!cfg||!cfg.vapidKey){if(ask)toast('Define vapidKey em firebase-config.js para ativar Push.');return}
+const emitNotif=(uid,nid,p)=>{
+  if(!uid||!user||uid===user.uid||state!=='ready')return;
+  return setDoc(doc(db,'users',uid,'notifications',nid),{...p,actorId:user.uid,actorName:(uname()||'Atleta').slice(0,60),count:1,read:false,t:Date.now()}).catch(()=>{});
+};
+async function fireAlert(item){
+  const f=formatNotif(item);
+  if(!document.hidden){toast('🔔 '+f.txt);return}
+  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  const url=f.req||f.type==='friend_accepted'?'?tab=groups':(f.entityId?'?post='+encodeURIComponent(f.entityId):'./');
+  const d={url,type:f.type,entityId:f.entityId,nid:f.id};
   try{
-    if(ask&&Notification.permission!=='granted'){
-      const p=await Notification.requestPermission();
-      if(p!=='granted'){toast('Permissão de notificações recusada.');renderBell();return}
+    if('serviceWorker' in navigator){
+      const reg=await navigator.serviceWorker.ready;
+      if(reg&&reg.showNotification){await reg.showNotification('KeepRun',{body:f.txt,icon:'./icon-192.png',badge:'./icon-192.png',tag:f.id||'kr-notif',renotify:true,data:d});return}
     }
-    if(Notification.permission!=='granted')return;
-    const [M,reg]=await Promise.all([msgMod||(msgMod=import(G+'firebase-messaging.js')),navigator.serviceWorker.ready]);
-    const ms=M.getMessaging(app);
-    const tok=await M.getToken(ms,{vapidKey:cfg.vapidKey,serviceWorkerRegistration:reg});
-    if(!tok)return;
-    const hBuf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(tok));
-    const tid=Array.from(new Uint8Array(hBuf)).slice(0,8).map(b=>b.toString(16).padStart(2,'0')).join('');
-    await setDoc(doc(db,'users',user.uid,'tokens',tid),{token:tok,ua:String(navigator.userAgent||'web').slice(0,40),t:Date.now()});
-    if(!syncPush._bound){syncPush._bound=1;M.onMessage(ms,()=>renderBell())}
-    if(ask){toast('Alertas Push ativos neste dispositivo!');renderAcct();const nv=document.getElementById('nv');if(nv&&nv.classList.contains('on'))showNotifs(notifs())}
-  }catch(e){if(ask)toast('Erro ao ativar Push')}
+    new Notification('KeepRun',{body:f.txt,icon:'./icon-192.png',tag:f.id||'kr-notif'});
+  }catch(e){}
 }
-async function markRead(id){
-  if(!user||!id)return;
-  const item=cloudNotifs.find(x=>x.id===id);if(item)item.read=true;renderBell();
-  updateDoc(doc(db,'users',user.uid,'notifications',id),{read:true}).catch(()=>{});
+async function enableAlerts(){
+  if(typeof Notification==='undefined'){toast('Alertas requerem browser compatível ou PWA no Ecrã Principal.');return}
+  if(Notification.permission==='denied'){toast('Alertas bloqueados nas definições do navegador.');return}
+  const p=Notification.permission==='granted'?'granted':await Notification.requestPermission();
+  if(p==='granted'){toast('Alertas ativos gratuitamente!');renderAcct();const nv=document.getElementById('nv');if(nv&&nv.classList.contains('on'))showNotifs(notifs())}
+  else toast('Permissão de alertas recusada.');
+}
+async function markRead(ids){
+  const arr=(Array.isArray(ids)?ids:[ids]).filter(Boolean);if(!user||!arr.length)return;
+  arr.forEach(id=>{const it=cloudNotifs.find(x=>x.id===id);if(it)it.read=true});renderBell();
+  Promise.all(arr.map(id=>updateDoc(doc(db,'users',user.uid,'notifications',id),{read:true}).catch(()=>{})));
 }
 async function markAllRead(){
   ss('kr_seen',String(Date.now()));
@@ -217,18 +240,19 @@ function showNotifs(l){
   let g=document.getElementById('nv');if(!g){g=document.createElement('div');g.id='nv';g.className='ov';document.body.appendChild(g)}
   g.classList.add('on');
   const seen=+ls('kr_seen','0'),un=countUnread(l,seen);
-  const canPush=typeof Notification!=='undefined'&&Notification.permission!=='granted'&&'PushManager' in window;
-  g.innerHTML=`<div class="gh" style="flex-wrap:wrap"><b>Notificações</b><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${canPush?'<button class="btn pri" id="np" style="padding:6px 10px;font-size:12px">🔔 Ativar Push</button>':''}${un?'<button class="btn" id="nra" style="padding:6px 10px;font-size:12px">Ler todas</button>':''}<button class="btn" id="nx" style="padding:6px 12px;font-size:13px">Fechar</button></div></div>`
+  const canAl=typeof Notification!=='undefined'&&Notification.permission==='default';
+  g.innerHTML=`<div class="gh" style="flex-wrap:wrap"><b>Notificações</b><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${canAl?'<button class="btn pri" id="np" style="padding:6px 10px;font-size:12px">🔔 Ativar alertas</button>':''}${un?'<button class="btn" id="nra" style="padding:6px 10px;font-size:12px">Ler todas</button>':''}<button class="btn" id="nx" style="padding:6px 12px;font-size:13px">Fechar</button></div></div>`
     +(l.length?l.slice(0,30).map((x,i)=>{
       const isU=x.id?!x.read:(x.req||x.t>seen);
       return `<div class="gst" data-ni="${i}" style="cursor:pointer;${isU?'background:rgba(252,76,2,.08);border-radius:12px;padding:12px 10px':'padding:12px 6px'}"><i style="width:9px;height:9px;border-radius:50%;background:${isU?'var(--ac)':'rgba(255,255,255,.14)'};flex:none"></i><div style="min-width:0"><div style="${isU?'font-weight:700':''}">${esc(x.txt)}</div><div class="mu">${x.t?new Date(x.t).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</div></div></div>`;
     }).join(''):'<p class="mu">Sem notificações.</p>');
   g.querySelector('#nx').onclick=()=>g.classList.remove('on');
   if(g.querySelector('#nra'))g.querySelector('#nra').onclick=()=>markAllRead();
-  if(g.querySelector('#np'))g.querySelector('#np').onclick=()=>syncPush(true);
+  if(g.querySelector('#np'))g.querySelector('#np').onclick=()=>enableAlerts();
   g.querySelectorAll('[data-ni]').forEach(el=>el.onclick=()=>{
     const it=l[+el.dataset.ni];if(!it)return;
-    if(it.id)markRead(it.id);else ss('kr_seen',String(Date.now()));
+    const ids=it.ids&&it.ids.length?it.ids:it.id;
+    if(ids&&ids.length)markRead(ids);else ss('kr_seen',String(Date.now()));
     g.classList.remove('on');navNotif(it.type,it.entityId);
   });
 }
@@ -292,11 +316,15 @@ async function emailAuth(mode){const e=($('#em-e').value||'').trim(),p=$('#em-p'
 async function addFriend(c){c=c.trim().toUpperCase();if(c.length<4)return toast('Código inválido');if(c===code)return toast('Esse é o teu código');
   try{const t=await getDoc(doc(db,'codes',c));if(!t.exists())return toast('Código não encontrado');const to=t.data().uid;
     if(friends.some(f=>f.id===to))return toast('Já são amigos');
-    await setDoc(doc(db,'requests',to+'_'+user.uid),{from:user.uid,fromName:uname().slice(0,60),to,status:'pending',t:Date.now()});toast('Pedido enviado')}
+    await setDoc(doc(db,'requests',to+'_'+user.uid),{from:user.uid,fromName:uname().slice(0,60),to,status:'pending',t:Date.now()});
+    emitNotif(to,'req_'+user.uid,{type:'friend_request',entityType:'friendship',entityId:user.uid,postTitle:'',text:''});
+    toast('Pedido enviado')}
   catch(e){toast('Erro ao adicionar')}}
 async function accept(i){const r=inc[i];if(!r)return;
-  try{await setDoc(doc(db,'users',user.uid,'friends',r.from),{name:String(r.fromName||'Amigo').slice(0,60),t:Date.now()});await updateDoc(doc(db,'requests',r.id),{status:'accepted'})}catch(e){toast('Erro')}}
-const decline=i=>{const r=inc[i];if(r)deleteDoc(doc(db,'requests',r.id)).catch(()=>toast('Erro'))};
+  try{await setDoc(doc(db,'users',user.uid,'friends',r.from),{name:String(r.fromName||'Amigo').slice(0,60),t:Date.now()});await updateDoc(doc(db,'requests',r.id),{status:'accepted'});
+    emitNotif(r.from,'acc_'+user.uid,{type:'friend_accepted',entityType:'friendship',entityId:user.uid,postTitle:'',text:''});
+    markRead('req_'+r.from)}catch(e){toast('Erro')}}
+const decline=i=>{const r=inc[i];if(r){deleteDoc(doc(db,'requests',r.id)).catch(()=>toast('Erro'));deleteDoc(doc(db,'users',user.uid,'notifications','req_'+r.from)).catch(()=>{})}};
 async function removeF(i){const f=friends[i];if(!f||!confirm('Remover amigo?'))return;try{await deleteDoc(doc(db,'users',user.uid,'friends',f.id));await deleteDoc(doc(db,'users',f.id,'friends',user.uid));await deleteDoc(doc(db,'requests',user.uid+'_'+f.id)).catch(()=>{});await deleteDoc(doc(db,'requests',f.id+'_'+user.uid)).catch(()=>{})}catch(e){}}
 async function wipe(){
   if(!confirm('Apagar todos os teus dados na nuvem (atividades partilhadas, amigos, pedidos, código e conta)? As atividades guardadas neste dispositivo mantêm-se.'))return;
@@ -305,7 +333,7 @@ async function wipe(){
     const it=await getDocs(collection(db,'activities',me,'items'));for(const d of it.docs){for(const sub of ['kudos','comments']){const ss2=await getDocs(collection(db,'activities',me,'items',d.id,sub));for(const x of ss2.docs)await deleteDoc(x.ref)}await deleteDoc(d.ref)}
     for(const f of friends){await deleteDoc(doc(db,'users',me,'friends',f.id)).catch(()=>{});await deleteDoc(doc(db,'users',f.id,'friends',me)).catch(()=>{})}
     for(const k of ['from','to']){const rs=await getDocs(query(collection(db,'requests'),where(k,'==',me)));for(const d of rs.docs)await deleteDoc(d.ref)}
-    for(const sub of ['notifications','tokens']){try{const sn=await getDocs(collection(db,'users',me,sub));for(const d of sn.docs)await deleteDoc(d.ref)}catch(e){}}
+    try{const sn=await getDocs(collection(db,'users',me,'notifications'));for(const d of sn.docs)await deleteDoc(d.ref)}catch(e){}
     if(code)await deleteDoc(doc(db,'codes',code)).catch(()=>{});
     await deleteDoc(doc(db,'users',me)).catch(()=>{});ss('kr_synced_'+me,'[]');ss('kr_strava_tok','');ss('kr_gemini_key','');
     try{await deleteUser(user);toast('Dados e conta apagados')}catch(e){ss('kr_wipe_'+me,'1');await signOut(auth);toast('Dados apagados. Entra de novo para concluir a eliminação da conta.')}
@@ -327,12 +355,12 @@ function renderAcct(){const el=$('#acct');if(!el)return;let h='';
     <div id="em" class="hide"><input id="em-e" type="email" placeholder="Email" style="width:100%;margin-top:10px"><input id="em-p" type="password" placeholder="Palavra-passe (mín. 6)" style="width:100%;margin-top:8px"><p><button class="btn pri" id="em-in">Entrar</button> <button class="btn" id="em-new">Criar conta</button> <button class="btn" id="em-rs">Recuperar palavra-passe</button></p></div></div>`;
   else{const sh=ls('kr_share','1')==='1',pOn=typeof Notification!=='undefined'&&Notification.permission==='granted';
     h=`<div class="card"><b>${esc(uname())}</b><div class="mu">${esc(user.email||'')}</div><p class="mu">Código de amigo: <b style="color:var(--tx)">${esc(code||'—')}</b></p>
-    <label><input type="checkbox" id="sh" ${sh?'checked':''}> Partilhar e sincronizar atividades na nuvem</label><p style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="sy-now">🔄 Sincronizar agora</button>${typeof Notification!=='undefined'&&'PushManager' in window?`<button class="btn" id="psh-btn">${pOn?'🔔 Push ativo':'🔕 Ativar alertas Push'}</button>`:''}<button class="btn" id="so">Terminar sessão</button> <button class="btn" id="wp-del">Apagar os meus dados na nuvem</button></p></div>`}
+    <label><input type="checkbox" id="sh" ${sh?'checked':''}> Partilhar e sincronizar atividades na nuvem</label><p style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="sy-now">🔄 Sincronizar agora</button>${typeof Notification!=='undefined'?`<button class="btn" id="psh-btn">${pOn?'🔔 Alertas ativos':'🔕 Ativar alertas'}</button>`:''}<button class="btn" id="so">Terminar sessão</button> <button class="btn" id="wp-del">Apagar os meus dados na nuvem</button></p></div>`}
   el.innerHTML=h+renderZone();
   const q=x=>el.querySelector(x);
   if(q('#pv2'))q('#pv2').onclick=()=>window.KR_policy&&KR_policy();
   if(q('#gl')){q('#gl').onclick=login;q('#em-t').onclick=()=>q('#em').classList.toggle('hide');q('#em-in').onclick=()=>emailAuth('in');q('#em-new').onclick=()=>emailAuth('new');q('#em-rs').onclick=()=>emailAuth('reset')}
-  if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);if(q('#psh-btn'))q('#psh-btn').onclick=()=>syncPush(true);q('#so').onclick=()=>{ss('kr_strava_tok','');ss('kr_gemini_key','');signOut(auth)};q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
+  if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);if(q('#psh-btn'))q('#psh-btn').onclick=()=>enableAlerts();q('#so').onclick=()=>{ss('kr_strava_tok','');ss('kr_gemini_key','');signOut(auth)};q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
   bindZone(el)}
 function renderFriends(){const el=$('#friends');if(!el)return;
   const stravaCard=`<div class="card"><div class="sh" style="margin-bottom:6px"><b>🧡 Perfis Strava & Importação</b></div><p class="mu" style="margin:0 0 10px">Explora perfis de outros atletas no Strava, compara estatísticas frente-a-frente ou importa as tuas atividades do Strava.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="st-prof">👤 Ver Perfis do Strava</button><button class="btn" id="st-imp">📥 Importar do Strava</button></div></div>`;

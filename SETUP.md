@@ -11,13 +11,10 @@
 
 O plano gratuito (Spark) chega para uso pessoal, feed e amigos.
 
-## Notificações em tempo real e Push (FCM, opcional)
-- As atualizações ao vivo no sino (`#bell`) funcionam na coleção `users/{uid}/notifications`.
-- Para ativar **alertas com o ecrã bloqueado (Push)** e entrega assíncrona no servidor:
-  1. Muda o projeto Firebase para o plano **Blaze** (gratuito dentro da quota mensal generosa).
-  2. Em **Definições do projeto > Cloud Messaging > Web Push certificates**, gera um par de chaves e cola a chave pública em `vapidKey` no ficheiro `firebase-config.js`.
-  3. Instala as dependências e faz deploy: `cd functions && npm install && cd .. && firebase deploy --only functions,firestore:rules`.
-  4. No iPhone, adiciona a app ao **Ecrã Principal** (iOS 16.4+) e toca em **🔔 Ativar Push**.
+## Notificações em tempo real (100% grátis no plano Spark)
+- As notificações (pedidos enviados, pedidos aceites, Keeps e comentários) são entregues em tempo real na coleção `users/{uid}/notifications`, com estado lido/não lido sincronizado e **sem precisar de plano Blaze nem cartão de crédito**.
+- Basta colar o conteúdo de `firestore.rules` em **Firestore Database > Regras** e clicar em **Publicar**.
+- Com a app aberta em segundo plano (ou adicionada ao **Ecrã Principal** no iPhone iOS 16.4+), toca em **🔔 Ativar alertas** para receber avisos do sistema quando chegar uma interação nova. (Nota: notificações remotas com a app totalmente fechada e ecrã bloqueado exigem um servidor externo com chave privada; no Spark gratuito o sino atualiza em tempo real mal abres ou resumes a app.)
 
 ## Privacidade (o que é e não é garantido)
 - Só os amigos aceites veem as tuas atividades. Cada pessoa decide o que partilha, e remover um amigo corta o acesso dos dois lados.
