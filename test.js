@@ -68,7 +68,7 @@ const escSocial=esc,lsSocial=ls,ssSocial=ss,numSocial=num,hello=()=>{},KR_sync=(
 new Function('acts','ls','ss','esc','num','hello','KR_sync','renderCards','toast','window','navigator','document',
   read('social.js').replace(/export /g,'').replace(/\bimport\(/g,'(async()=>({}))('))(
   actsSocial,lsSocial,ssSocial,escSocial,numSocial,hello,KR_sync,()=>{},toast,globalThis,window.navigator,window.document);
-const {formatNotif,mergeNotifs,countUnread}=globalThis.KR_notifs;
+const {formatNotif,mergeNotifs,countUnread,buildComments}=globalThis.KR_notifs;
 assert(formatNotif({type:'post_like',actorName:'Ana',postTitle:'Treino Longo',count:4}).txt.includes('e mais 3 deram Keep'),'formatNotif colapsa likes');
 assert(formatNotif({type:'friend_accepted',actorName:'Pedro'}).txt.includes('aceitou'),'formatNotif amigo aceite');
 const merged=mergeNotifs(
@@ -88,5 +88,22 @@ const colSpark=mergeNotifs([
   {id:'like_42_u3',type:'post_like',actorName:'Inês',entityId:'42',postTitle:'Treino Longo',count:1,read:true,t:50}
 ],{},actsSocial,[],'me');
 assert(colSpark.length===2&&colSpark[0].count===2&&colSpark[0].ids.length===2&&colSpark[0].txt.includes('Rui e mais 1'),'mergeNotifs colapsa múltiplos Keeps não lidos no Spark mantendo os já lidos separados');
+
+// Teste G: Secção de comentários (likes em comentários, permissões para apagar no dono vs amigo, comentários locais)
+const cmOwn=buildComments(
+  {c:['Nota local'],cl:[1],date:100},
+  {c:[{id:'c1',uid:'u2',name:'Ana',text:'Força!',t:200,likes:[{uid:'me',name:'Eu'}]}]},
+  'me','me','Eu'
+);
+assert(cmOwn.length===2&&cmOwn[0].liked===true&&cmOwn[0].canDel===true&&cmOwn[1].liked===true&&cmOwn[1].canDel===true,'dono da atividade pode dar like e apagar comentários cloud e locais');
+const cmFriend=buildComments(
+  null,
+  {c:[
+    {id:'c1',uid:'me',name:'Eu',text:'Meu comentário',t:100,likes:[]},
+    {id:'c2',uid:'u3',name:'Pedro',text:'Outro amigo',t:150,likes:[{uid:'u2',name:'Ana'}]}
+  ]},
+  'me','u2','Eu'
+);
+assert(cmFriend.length===2&&cmFriend[0].canDel===true&&cmFriend[1].canDel===false&&cmFriend[1].liked===false,'em post de amigo só pode apagar o próprio comentário');
 
 console.log('OK: Todos os testes passaram.');

@@ -140,6 +140,16 @@ service cloud.firestore {
           && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 200
           && request.resource.data.t is number;
         allow delete: if signedIn() && (resource.data.uid == request.auth.uid || request.auth.uid == uid);
+
+        // Likes em comentarios: um por amigo/dono (o id do documento e o uid de quem deu like).
+        match /likes/{lid} {
+          allow read: if canSee(uid);
+          allow create, update: if canSee(uid) && lid == request.auth.uid
+            && request.resource.data.keys().hasOnly(['name', 't'])
+            && request.resource.data.name is string && request.resource.data.name.size() <= 60
+            && request.resource.data.t is number;
+          allow delete: if signedIn() && (lid == request.auth.uid || request.auth.uid == uid);
+        }
       }
     }
   }

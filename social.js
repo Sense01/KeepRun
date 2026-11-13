@@ -109,8 +109,24 @@ const setLocalKeep=(id,v)=>{const k=getLocalKeeps();if(v)k[id]=1;else delete k[i
 async function loadSoc(owner,aid){let k=[],c=[];
   try{const s=await getDocs(collection(db,'activities',owner,'items',aid,'kudos'));k=s.docs.map(d=>({uid:d.id,name:String(d.data().name||'Amigo').slice(0,60),t:num(d.data().t)}))}catch(e){}
   if(user&&getLocalKeeps()[owner+'_'+aid]&&!k.some(x=>x.uid===user.uid))k.unshift({uid:user.uid,name:uname().slice(0,60),t:Date.now()});
-  try{const s=await getDocs(query(collection(db,'activities',owner,'items',aid,'comments'),orderBy('t'),limit(20)));c=s.docs.map(d=>({id:d.id,uid:String(d.data().uid||''),name:String(d.data().name||'Amigo').slice(0,60),text:String(d.data().text||'').slice(0,200),t:num(d.data().t)}))}catch(e){}
+  try{const s=await getDocs(query(collection(db,'activities',owner,'items',aid,'comments'),orderBy('t'),limit(20)));c=s.docs.map(d=>({id:d.id,uid:String(d.data().uid||''),name:String(d.data().name||'Amigo').slice(0,60),text:String(d.data().text||'').slice(0,200),t:num(d.data().t),likes:[]}))}catch(e){}
   return{k,c}}
+async function loadCommentLikes(owner,aid,list){
+  if(state!=='ready'||!user||!owner||!aid||!Array.isArray(list)||!list.length)return;
+  await Promise.all(list.map(async c=>{if(!c.id)return;
+    try{const s=await getDocs(collection(db,'activities',owner,'items',aid,'comments',c.id,'likes'));
+      c.likes=s.docs.map(d=>({uid:d.id,name:String(d.data().name||'Atleta').slice(0,60),t:num(d.data().t)}))}catch(e){c.likes=c.likes||[]}}));
+}
+function buildComments(a,soc,myUid,ownerUid,myName){
+  const out=[];
+  ((soc&&soc.c)||[]).forEach(c=>{const likes=Array.isArray(c.likes)?c.likes:[];
+    out.push({...c,likes,liked:!!(myUid&&likes.some(x=>x.uid===myUid)),canDel:!!(myUid&&(ownerUid===myUid||c.uid===myUid))})});
+  ((a&&Array.isArray(a.c)&&a.c)||[]).forEach((txt,idx)=>{
+    const on=!!(a.cl&&a.cl[idx]),likes=on?[{uid:myUid||'me',name:myName||'Eu'}]:[];
+    out.push({localIdx:idx,uid:myUid||'me',name:myName||'Eu',text:String(txt),t:num(a.date),likes,liked:on,canDel:true});
+  });
+  return out;
+}
 async function loadMine(){if(!user||state!=='ready')return;
   const mine=acts.filter(x=>x.share!==false&&ls('kr_share','1')==='1').slice().sort((x,y)=>y.date-x.date).slice(0,10);
   await Promise.all(mine.map(async a=>{const s=await loadSoc(user.uid,key(a));MY[key(a)]=s;if(s.k.some(x=>x.uid===user.uid))a.k=true}));
@@ -126,8 +142,8 @@ window.KR_keep=(a,on)=>{
     (on?setDoc(r,{name:uname().slice(0,60),t:Date.now()}):deleteDoc(r)).catch(()=>{});
   }
 };
-window.KR_social=a=>{const m=user&&MY[key(a)];if(!m)return'';
-  return m.c.map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')};
+window.KR_social=a=>{const m=user&&MY[key(a)];if(!m||!m.c.length)return'';
+  return m.c.slice(0,3).map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')};
 window.KR_cmt=(a,text)=>{if(state!=='ready'||!user||a.share===false||ls('kr_share','1')!=='1')return false;
   setDoc(doc(collection(db,'activities',user.uid,'items',key(a),'comments')),{uid:user.uid,name:uname().slice(0,60),text:String(text).slice(0,200),t:Date.now()}).then(loadMine).catch(()=>toast('Erro ao comentar'));return true};
 const mineK=p=>!!(user&&((p.soc&&p.soc.k.some(x=>x.uid===user.uid))||getLocalKeeps()[p.owner+'_'+p.aid]));
@@ -145,13 +161,113 @@ async function toggleKudos(i){const p=FA[i];if(!p||!user)return;
     }catch(e){}
   }
 }
-async function addComment(i){const p=FA[i];if(!p)return;const t=prompt('Comentário');if(!t||!t.trim())return;
-  const txt=t.trim().slice(0,200),cRef=doc(collection(db,'activities',p.owner,'items',p.aid,'comments'));
+function commentInfo(tgt){
+  if(tgt.kind==='friend'){const p=tgt.p;
+    return{owner:p.owner,aid:p.aid,title:p.title||'Atividade',author:p.fname||'Amigo',cloud:state==='ready'&&!!user,soc:p.soc||(p.soc={k:[],c:[]}),a:null,likedPost:mineK(p),kNames:(p.soc&&p.soc.k||[]).map(x=>x.name)};}
+  const a=tgt.a,aid=key(a),soc=user?(MY[aid]||(MY[aid]={k:[],c:[]})):{k:[],c:[]},myK=!!(a.k||(user&&soc.k.some(x=>x.uid===user.uid)));
+  const kNames=[...(a.k&&!(user&&soc.k.some(x=>x.uid===user.uid))?[ls('kr_name','Atleta')]:[]),...soc.k.map(x=>x.name)];
+  return{owner:user?user.uid:'',aid,title:a.name||'Atividade',author:ls('kr_name','Atleta'),cloud:state==='ready'&&!!user&&a.share!==false&&ls('kr_share','1')==='1',soc,a,likedPost:myK,kNames};
+}
+async function refreshTargetSoc(tgt,box,overlay){
+  const t=commentInfo(tgt);if(!t.cloud||!t.owner)return;
+  const fresh=await loadSoc(t.owner,t.aid);
+  await loadCommentLikes(t.owner,t.aid,fresh.c);
+  if(tgt.kind==='friend'){tgt.p.soc=fresh;renderFF()}
+  else{MY[t.aid]=fresh;if(fresh.k.some(x=>x.uid===user.uid))tgt.a.k=true;if(window.renderCards)renderCards()}
+  if(box&&box.isConnected)renderCommentsInto(box,tgt,overlay);
+}
+async function toggleTargetKeep(tgt,box,overlay){
+  if(tgt.kind==='friend'){const idx=FA.indexOf(tgt.p);if(idx>=0)await toggleKudos(idx);else toast('Entra para dar Keep')}
+  else{const a=tgt.a,t=commentInfo(tgt);a.k=!t.likedPost;a.dirty=true;window.KR_keep&&KR_keep(a,a.k);window.KR_saveLocal&&KR_saveLocal();KR_sync();if(window.renderCards)renderCards();toast(a.k?'🔥 Deste um Keep!':'Keep removido')}
+  if(box&&box.isConnected)renderCommentsInto(box,tgt,overlay);
+}
+async function likeTargetComment(tgt,c,box,overlay){
+  const t=commentInfo(tgt);
+  if(c.localIdx!=null){
+    t.a.cl=Array.isArray(t.a.cl)?t.a.cl:[];t.a.cl[c.localIdx]=t.a.cl[c.localIdx]?0:1;
+    window.KR_saveLocal&&KR_saveLocal();renderCommentsInto(box,tgt,overlay);return;
+  }
+  if(!t.cloud||!user)return toast('Entra com a tua conta para dar like');
+  const r=doc(db,'activities',t.owner,'items',t.aid,'comments',c.id,'likes',user.uid);
   try{
-    await setDoc(cRef,{uid:user.uid,name:uname().slice(0,60),text:txt,t:Date.now()});
-    if(p.owner!==user.uid)emitNotif(p.owner,'cmt_'+p.aid+'_'+cRef.id,{type:'post_comment',entityType:'post',entityId:p.aid,postTitle:String(p.title||'atividade').slice(0,80),text:txt});
-    p.soc=await loadSoc(p.owner,p.aid);renderFF();
-  }catch(e){toast('Erro')}}
+    if(c.liked){await deleteDoc(r);c.likes=(c.likes||[]).filter(x=>x.uid!==user.uid)}
+    else{const entry={uid:user.uid,name:uname().slice(0,60),t:Date.now()};await setDoc(r,{name:entry.name,t:entry.t});c.likes=[...(c.likes||[]).filter(x=>x.uid!==user.uid),entry]}
+    renderCommentsInto(box,tgt,overlay);
+  }catch(e){toast(e&&e.code==='permission-denied'?'Publica as regras atualizadas do Firebase para likes em comentários':'Erro ao dar like')}
+}
+async function delTargetComment(tgt,c,box,overlay){
+  if(!confirm('Apagar este comentário?'))return;
+  const t=commentInfo(tgt);
+  if(c.localIdx!=null){
+    if(Array.isArray(t.a.c))t.a.c.splice(c.localIdx,1);
+    if(Array.isArray(t.a.cl))t.a.cl.splice(c.localIdx,1);
+    window.KR_saveLocal&&KR_saveLocal();KR_sync();if(window.renderCards)renderCards();
+    renderCommentsInto(box,tgt,overlay);toast('Comentário apagado');return;
+  }
+  try{
+    await deleteDoc(doc(db,'activities',t.owner,'items',t.aid,'comments',c.id));
+    if(t.owner)deleteDoc(doc(db,'users',t.owner,'notifications','cmt_'+t.aid+'_'+c.id)).catch(()=>{});
+    t.soc.c=(t.soc.c||[]).filter(x=>x.id!==c.id);
+    if(tgt.kind==='friend')renderFF();else if(window.renderCards)renderCards();
+    renderCommentsInto(box,tgt,overlay);toast('Comentário apagado');
+  }catch(e){toast('Sem permissão ou erro ao apagar')}
+}
+async function submitTargetComment(tgt,txt,box,overlay){
+  const v=String(txt||'').trim().slice(0,200);if(!v)return false;
+  const t=commentInfo(tgt);
+  if(!t.cloud){
+    if(tgt.kind==='mine'){
+      t.a.c=Array.isArray(t.a.c)?t.a.c:[];t.a.c.push(v.slice(0,300));
+      window.KR_saveLocal&&KR_saveLocal();KR_sync();if(window.renderCards)renderCards();
+      renderCommentsInto(box,tgt,overlay);toast('Comentário adicionado');return true;
+    }
+    toast('Entra com a tua conta para comentar');return false;
+  }
+  const cRef=doc(collection(db,'activities',t.owner,'items',t.aid,'comments'));
+  try{
+    await setDoc(cRef,{uid:user.uid,name:uname().slice(0,60),text:v,t:Date.now()});
+    if(tgt.kind==='friend'&&t.owner!==user.uid)emitNotif(t.owner,'cmt_'+t.aid+'_'+cRef.id,{type:'post_comment',entityType:'post',entityId:t.aid,postTitle:String(t.title||'atividade').slice(0,80),text:v});
+    await refreshTargetSoc(tgt,box,overlay);return true;
+  }catch(e){toast('Erro ao enviar comentário');return false}
+}
+function renderCommentsInto(box,tgt,overlay){
+  const prev=box.querySelector('#cm-in'),draft=prev?prev.value:'',wasFocused=!!(prev&&typeof document!=='undefined'&&document.activeElement===prev);
+  const t=commentInfo(tgt),list=buildComments(t.a,t.soc,user?user.uid:'',t.owner,ls('kr_name','Atleta'));
+  const head=overlay?`<div class="gh" style="flex-wrap:wrap"><div style="min-width:0"><b>💬 ${esc(t.title)}</b><div class="mu" style="font-size:12px;font-weight:500">${esc(t.author)}</div></div><button class="btn" id="cmx" style="padding:6px 12px;font-size:13px">Fechar</button></div>`
+    :`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><b>💬 Comentários (${list.length})</b></div>`;
+  const keepBar=`<div class="card" style="padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div class="mu" style="font-size:13px">${t.kNames.length?`🔥 <b>${t.kNames.length} ${t.kNames.length===1?'Keep':'Keeps'}</b> · ${t.kNames.slice(0,4).map(esc).join(', ')}${t.kNames.length>4?'…':''}`:'Ainda sem Keeps'}</div><button class="btn ${t.likedPost?'pri':''}" id="cm-keep" style="padding:6px 10px;font-size:12px">${t.likedPost?'🔥 Keep dado':'👍 Dar Keep'}</button></div>`;
+  const rows=list.length?list.map((c,i)=>`<div class="gst" style="align-items:flex-start;flex-direction:column;gap:6px;padding:10px 4px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%"><b>${esc(c.name)}</b><span class="mu" style="font-size:11px">${c.t?new Date(c.t).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></div>
+    <div style="font-size:14px;line-height:1.45;word-break:break-word">${esc(c.text)}</div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="btn ${c.liked?'pri':''}" data-cl="${i}" style="padding:4px 9px;font-size:12px">${c.liked?'❤️':'🤍'}${c.likes.length?' '+c.likes.length:''}</button>
+      <button class="btn" data-cr="${i}" style="padding:4px 9px;font-size:12px">↩️ Responder</button>
+      ${c.canDel?`<button class="btn" data-cd="${i}" style="padding:4px 9px;font-size:12px;color:#fda4af">🗑️ Apagar</button>`:''}
+    </div>
+  </div>`).join(''):'<p class="mu" style="margin:8px 0">Ainda sem comentários. Sê o primeiro a comentar!</p>';
+  const form=`<form id="cm-form" style="display:flex;gap:8px;margin-top:12px"><input id="cm-in" placeholder="Escreve um comentário ou resposta…" maxlength="200" style="flex:1;min-width:0"><button class="btn pri" type="submit">Enviar</button></form>`;
+  box.innerHTML=overlay?(head+keepBar+rows+form):`<div class="card">${head}${keepBar}${rows}${form}</div>`;
+  const inp=box.querySelector('#cm-in');
+  if(inp&&draft)inp.value=draft;
+  if(inp&&wasFocused){inp.focus();try{inp.setSelectionRange(draft.length,draft.length)}catch(e){}}
+  if(overlay&&box.querySelector('#cmx'))box.querySelector('#cmx').onclick=()=>{box.classList.remove('on');window.renderCards&&renderCards()};
+  box.querySelector('#cm-keep').onclick=()=>toggleTargetKeep(tgt,box,overlay);
+  box.querySelectorAll('[data-cl]').forEach(b=>b.onclick=()=>likeTargetComment(tgt,list[+b.dataset.cl],box,overlay));
+  box.querySelectorAll('[data-cr]').forEach(b=>b.onclick=()=>{const it=list[+b.dataset.cr],inp=box.querySelector('#cm-in');if(it&&inp){inp.value='@'+it.name+' ';inp.focus()}});
+  box.querySelectorAll('[data-cd]').forEach(b=>b.onclick=()=>delTargetComment(tgt,list[+b.dataset.cd],box,overlay));
+  box.querySelector('#cm-form').onsubmit=async e=>{e.preventDefault();const inp=box.querySelector('#cm-in'),btn=e.target.querySelector('button');if(!inp)return;btn.disabled=true;const ok=await submitTargetComment(tgt,inp.value,box,overlay);btn.disabled=false;if(ok&&inp.isConnected)inp.value=''};
+}
+function openComments(tgt,focusInput){
+  let g=document.getElementById('cmv');if(!g){g=document.createElement('div');g.id='cmv';g.className='ov';document.body.appendChild(g)}
+  g.classList.add('on');
+  renderCommentsInto(g,tgt,true);
+  if(focusInput){const inp=g.querySelector('#cm-in');if(inp)setTimeout(()=>inp.focus(),40)}
+  refreshTargetSoc(tgt,g,true);
+}
+window.KR_openComments=(a,focus)=>openComments({kind:'mine',a},focus!==false);
+window.KR_mountComments=(a,sel)=>{const box=typeof sel==='string'?document.querySelector(sel):sel;if(!box||!a)return;
+  const tgt={kind:'mine',a};renderCommentsInto(box,tgt,false);refreshTargetSoc(tgt,box,false);
+};
 // ---- notificações em tempo real (100% Spark gratuito) ----
 const formatNotif=x=>{
   const nm=x.actorName||'Atleta',pt=x.postTitle||'atividade',cnt=Number(x.count)||1;
@@ -385,16 +501,18 @@ function renderFriends(){const el=$('#friends');if(!el)return;
 function fpost(a,i){const pts=[],r=Array.isArray(a.r)?a.r:[];for(let i=0;i+1<r.length;i+=2){const la=Number(r[i]),lo=Number(r[i+1]);if(isFinite(la)&&isFinite(lo))pts.push([la,lo])}
   const d=num(a.dist),el=Math.round(num(a.elev)),du=num(a.dur),ef=Math.min(10,Math.max(0,Math.round(num(a.eff)))),nm=esc(a.fname||'Amigo'),k=(a.soc&&a.soc.k)||[],cm=(a.soc&&a.soc.c)||[];
   return `<div class="post"><div class="ph" data-fpf="${i}" style="cursor:pointer"><span class="av">${esc(String(a.fname||'?')[0].toUpperCase())}</span><div class="pm" style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b>${nm} <small class="mu" style="font-weight:400">· ver perfil</small></b><span class="pill">${window.ic?ic(String(a.type||'')):'🏃'} ${esc(a.type||'')}</span></div><div class="mu">${fDT(num(a.date))}</div></div></div>
-  <h2 style="cursor:default">${esc(a.title||'')}</h2>${ef?`<div class="mu" style="margin:-6px 0 10px">💪 Esforço ${ef}/10</div>`:''}${a.desc?`<p style="margin:0 0 10px">${esc(a.desc)}</p>`:''}
+  <h2 data-fcm="${i}" style="cursor:pointer">${esc(a.title||'')}</h2>${ef?`<div class="mu" style="margin:-6px 0 10px">💪 Esforço ${ef}/10</div>`:''}${a.desc?`<p style="margin:0 0 10px">${esc(a.desc)}</p>`:''}
   <div class="ps"><div><span>Distância</span><b>${d?(d/1000).toFixed(2)+' km':'—'}</b></div><div><span>Subida</span><b>${el} m</b></div><div><span>Tempo</span><b>${fTL(du)}</b></div></div>
-  ${pts.length>1?`<div class="mapbox" style="cursor:default">${thumb(pts)}</div>`:''}
-  <div class="kd">${k.length?`🔥 <b>${k.length} ${k.length===1?'Keep':'Keeps'}</b> · `+k.slice(0,4).map(x=>esc(x.name)).join(', '):'Sê o primeiro a dar um Keep!'}</div>${cm.map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')}
-  <div class="ac"><button class="fk ${mineK(a)?'on':''}" data-i="${i}" aria-label="Dar Keep">${(window.KR_IC||{}).thumb||''}<span>${k.length?k.length+' ':''}${k.length===1?'Keep':'Keeps'}</span></button><button class="fc" data-i="${i}" aria-label="Comentar">${(window.KR_IC||{}).chat||''}<span>Comentar</span></button></div></div>`}
+  ${pts.length>1?`<div class="mapbox" data-fcm="${i}" style="cursor:pointer">${thumb(pts)}</div>`:''}
+  <div class="kd">${k.length?`🔥 <b>${k.length} ${k.length===1?'Keep':'Keeps'}</b> · `+k.slice(0,4).map(x=>esc(x.name)).join(', '):'Sê o primeiro a dar um Keep!'}</div>
+  <div class="cm" data-fcm="${i}" style="cursor:pointer">${cm.slice(0,3).map(c=>`<p style="margin:4px 0;font-size:14px"><b>${esc(c.name)}</b> ${esc(c.text)}</p>`).join('')}${cm.length?`<div class="mu" style="margin-top:4px;font-size:12px;color:var(--ac2)">💬 Ver secção de comentários (${cm.length}) — responder, apagar ou dar like ›</div>`:''}</div>
+  <div class="ac"><button class="fk ${mineK(a)?'on':''}" data-i="${i}" aria-label="Dar Keep">${(window.KR_IC||{}).thumb||''}<span>${k.length?k.length+' ':''}${k.length===1?'Keep':'Keeps'}</span></button><button class="fc" data-i="${i}" aria-label="Comentar">${(window.KR_IC||{}).chat||''}<span>${cm.length?'Comentar ('+cm.length+')':'Comentar'}</span></button></div></div>`}
 function renderFF(){const el=$('#ff');if(!el)return;el.innerHTML=FA.length?'<h3 style="margin:8px 4px">Amigos</h3>'+FA.map((a,i)=>fpost(a,i)).join(''):'';
   el.querySelectorAll('[data-fpf]').forEach(p=>{p.onclick=()=>{const a=FA[+p.dataset.fpf];if(a&&window.openAthleteProfile)openAthleteProfile(a.owner,a.fname)}});
-  el.querySelectorAll('.fk').forEach(b=>b.onclick=()=>toggleKudos(+b.dataset.i));el.querySelectorAll('.fc').forEach(b=>b.onclick=()=>addComment(+b.dataset.i))}
+  el.querySelectorAll('[data-fcm]').forEach(c=>c.onclick=()=>{const p=FA[+c.dataset.fcm];if(p)openComments({kind:'friend',p},false)});
+  el.querySelectorAll('.fk').forEach(b=>b.onclick=()=>toggleKudos(+b.dataset.i));el.querySelectorAll('.fc').forEach(b=>b.onclick=()=>{const p=FA[+b.dataset.i];if(p)openComments({kind:'friend',p},true)})}
 function renderAll(){renderAcct();renderFriends();renderFF();renderBell()}
-window.KR_fa=()=>FA;window.KR_friendsList=()=>friends;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;window.KR_notifs={formatNotif,mergeNotifs,countUnread};
+window.KR_fa=()=>FA;window.KR_friendsList=()=>friends;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;window.KR_notifs={formatNotif,mergeNotifs,countUnread,buildComments};
 if(typeof navigator!=='undefined'&&navigator.serviceWorker){navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='KR_NOTIF'&&e.data.data){const d=e.data.data;if(d.nid)markRead(d.nid);navNotif(d.type,d.entityId)}})}
 if(typeof location!=='undefined'){try{const sp=new URLSearchParams(location.search);if(sp.get('tab')==='groups'||sp.get('post')){const tab=sp.get('tab'),pid=sp.get('post');history.replaceState(null,'',location.pathname);navNotif(tab==='groups'?'friend_request':'post_comment',pid||'')}}catch(e){}}
 init();
