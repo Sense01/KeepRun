@@ -61,5 +61,6 @@ acts[0].date=Date.now();acts[0].dist=18000;
 window.KRPro.setSleep({hours:4.5,target:8,score:45,deep:0.6,rem:0.8,rhr:62,updatedAt:Date.now()});
 const rd=window.KRPro.calcReadiness();
 assert(rd.total>0&&rd.total<=100&&rd.worst.id==='sleep'&&rd.failMsg.includes('Sono (Garmin)'),'calcReadiness identifica falha no sono');
+assert(window.KRW.scoreRing(rd.total,rd.color,44).includes('<svg')&&window.KRW.scoreRing(rd.total,rd.color,44).includes('>'+rd.total+'<'),'scoreRing gera SVG radial válido');
 
 console.log('OK: Todos os testes passaram.');

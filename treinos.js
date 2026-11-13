@@ -308,16 +308,19 @@ el.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{sel=b.dataset.sp;rend
 el.querySelectorAll('.wc').forEach(e=>e.onclick=()=>openW(list[+e.dataset.i]));
 const spc=el.querySelector('#spc');if(oldC)spc.scrollLeft=sx;else{const on=spc.querySelector('.on');if(on)spc.scrollLeft=Math.max(0,on.offsetLeft-20)}window.scrollTo(0,oy);
 el.querySelector('#waud').onchange=e=>ss('kr_audio',e.target.checked?'1':'0');renderRoutes()};
+const scoreRing=(v,col,sz=44)=>{const r=17,c=2*Math.PI*r,off=c*(1-Math.max(0,Math.min(100,+v||0))/100);
+return `<svg width="${sz}" height="${sz}" viewBox="0 0 42 42" style="flex:none"><circle cx="21" cy="21" r="${r}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="4.2"/><circle cx="21" cy="21" r="${r}" fill="none" stroke="${col}" stroke-width="4.2" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 21 21)"/><text x="21" y="25" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="800">${Math.round(+v||0)}</text></svg>`};
 window.renderWP=function(){const el=$('#wp');if(!el)return;const inf=mfpInfo(),p=(inf?inf.plan:picks(intent())).slice(0,2),w0=p[0],sc=window.KRPro&&KRPro.calcReadiness?KRPro.calcReadiness():null;
-const failShort=sc?(sc.worst.score<75?`⚠️ Falha: ${sc.worst.name} (${sc.worst.reason})`:`✅ Pronto · Melhorar: ${sc.worst.name}`):'';
-el.innerHTML=`<div class="wpc" style="padding:10px 16px;margin-bottom:8px">
-  ${sc?`<div id="wp-score-card" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--bd);cursor:pointer">
-    <div style="min-width:0"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="color:${sc.color}">⚡ Score ${sc.total}/100</b><span class="mu" style="font-size:12px">😴 ${sc.sleep.s} · 🥗 ${sc.nutri.s} · 🏃 ${sc.ex.s}</span></div><div class="mu" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(failShort)}</div></div>
-    <span class="pill" style="background:var(--bg);border:1px solid var(--bd);color:var(--tx);flex:none">⌚ Garmin</span>
+const failShort=sc?(sc.worst.score<75?`⚠️ Falha: ${sc.worst.name} — ${sc.worst.reason}`:`✅ Pronto · Otimizar: ${sc.worst.name}`):'';
+el.innerHTML=`<div class="wpc">
+  ${sc?`<div id="wp-score-card" style="display:flex;align-items:center;gap:12px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--bd);cursor:pointer">
+    ${scoreRing(sc.total,sc.color,44)}
+    <div style="min-width:0;flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:14px">Prontidão</b><span class="mu" style="font-size:12px">😴 ${sc.sleep.s} · 🥗 ${sc.nutri.s} · 🏃 ${sc.ex.s}</span></div><div class="mu" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(failShort)}</div></div>
+    <span class="pill" style="flex:none">⌚ Garmin</span>
   </div>`:''}
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-    ${w0?`<div class="wmini-row" data-i="0" style="display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0;flex:1"><span style="font-size:20px">${ic(w0.sport)}</span><div style="min-width:0"><b style="font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(w0.name)}</b><small class="mu" style="font-size:12px">${w0.dur} min · ~${estKcal(w0)} kcal</small></div></div>`:''}
-    <div style="display:flex;gap:8px;align-items:center;flex:none;font-size:13px"><a id="wpmfp" title="Nutrição MyFitnessPal">${inf?'🥗 '+esc(inf.badge):'🥗 MFP'}</a><a id="wpall" style="color:var(--ac);font-weight:600">Treinos →</a></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    ${w0?`<div class="wmini-row" data-i="0" style="display:flex;align-items:center;gap:10px;cursor:pointer;min-width:0;flex:1"><span class="badge" style="width:36px;height:36px;font-size:18px">${ic(w0.sport)}</span><div style="min-width:0"><b style="font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(w0.name)}</b><small class="mu" style="font-size:12px">${w0.dur} min · ~${estKcal(w0)} kcal</small></div></div>`:''}
+    <div style="display:flex;gap:8px;align-items:center;flex:none;font-size:12px"><a id="wpmfp" class="pill" style="cursor:pointer;text-decoration:none" title="Nutrição MyFitnessPal">${inf?'🥗 '+esc(inf.badge):'🥗 MFP'}</a><a id="wpall" style="color:var(--ac2);font-weight:700;cursor:pointer">Treinos →</a></div>
   </div>
 </div>`;
 el.querySelector('#wpmfp').onclick=()=>openMFP();el.querySelector('#wpall').onclick=()=>go('wo');
@@ -327,17 +330,16 @@ if(el.querySelector('.wmini-row'))el.querySelector('.wmini-row').onclick=()=>ope
 let lk=0;setInterval(()=>{try{const s=$('#rstop');if(!s||s.classList.contains('hide')){lk=0;return}const c=calc(rp),km=Math.floor(c.dist/1000);
 if(km>lk){lk=km;chime('km')}}catch(e){}},3000);
 const rs=$('#rstart');if(rs)rs.addEventListener('click',()=>AC());
-const stl=document.createElement('style');stl.textContent=`.ov{position:fixed;inset:0;background:var(--bg);z-index:2500;display:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:none;touch-action:pan-y;padding:calc(14px + env(safe-area-inset-top)) max(16px, calc((100vw - 680px) / 2)) calc(24px + env(safe-area-inset-bottom))}.ov.on{display:block}
-.gh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:20px;margin-bottom:8px}.gb{margin:14px 0;display:flex;gap:10px;flex-wrap:wrap}
-.gst{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--bd)}.gst span{width:26px;height:26px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:13px;flex:none}.gst div{flex:1}.gst em{font-style:normal;color:var(--mu)}
+const stl=document.createElement('style');stl.textContent=`.ov{position:fixed;inset:0;background:radial-gradient(ellipse 80% 40% at 50% 0%,rgba(252,76,2,.08),transparent 65%),var(--bg);z-index:2500;display:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:none;touch-action:pan-y;padding:calc(16px + env(safe-area-inset-top)) max(16px, calc((100vw - 680px) / 2)) calc(28px + env(safe-area-inset-bottom))}.ov.on{display:block;animation:fi .2s ease both}
+.gh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:19px;font-weight:800;letter-spacing:-.02em;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--bd)}.gb{margin:14px 0;display:flex;gap:10px;flex-wrap:wrap}
+.gst{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--bd)}.gst span{width:28px;height:28px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:13px;flex:none}.gst div{flex:1}.gst em{font-style:normal;color:var(--mu);font-variant-numeric:tabular-nums}
 .gan{height:min(34vh,280px);max-width:340px;margin:6px auto 0}.gan svg{width:100%;height:100%;display:block}.gem{font-size:96px;text-align:center;line-height:2.6}.gst .gth{width:56px;height:62px;flex:none;display:grid;place-items:center;font-size:26px}.gth svg{width:100%;height:100%}
-.gz{margin-top:14px;text-transform:uppercase;letter-spacing:2px;color:var(--ac);font-weight:700;text-align:center}.gn{font-size:28px;font-weight:700;text-align:center;margin:8px 0}.gt{font-size:68px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+.gz{margin-top:14px;text-transform:uppercase;letter-spacing:2px;color:var(--ac2);font-weight:800;font-size:12px;text-align:center}.gn{font-size:28px;font-weight:800;letter-spacing:-.02em;text-align:center;margin:8px 0}.gt{font-size:68px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
 #gp,#gnx{text-align:center}.wc{cursor:pointer}.wr{display:flex;gap:12px;align-items:center;cursor:pointer}.wr .th{width:80px;height:80px}
-.wpc{background:var(--card);padding:14px 16px;margin-bottom:8px;border-radius:12px}.wpc .sh{margin-bottom:10px}.wph{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
-.wmini{flex:0 0 150px;background:var(--bg);border-radius:12px;padding:12px;cursor:pointer}.wmini span{font-size:24px;display:block}.wmini b{display:block;margin:4px 0 2px;font-size:15px}.wmini small{color:var(--mu)}
-textarea{font:inherit;font-size:16px;padding:7px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);-webkit-user-select:text;user-select:text}.ib{position:relative}.nb{position:absolute;top:-4px;right:-6px;background:#e0245e;color:#fff;border-radius:10px;font-size:11px;font-weight:700;padding:1px 5px;min-width:18px;text-align:center}
-.lb{display:block;margin:16px 0 6px;color:var(--mu);font-size:14px}.ck{display:block;margin:10px 0}input[type=range]{padding:0}
-@media(max-width:640px){.wpc{border-radius:0}}`;document.head.appendChild(stl);
+.wpc{background:linear-gradient(180deg,rgba(24,27,36,.92),rgba(17,19,26,.98));border:1px solid var(--bd);padding:12px 14px;margin-bottom:12px;border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 24px rgba(0,0,0,.3)}.wpc .sh{margin-bottom:10px}.wph{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
+.wmini{flex:0 0 150px;background:rgba(255,255,255,.03);border:1px solid var(--bd);border-radius:14px;padding:12px;cursor:pointer}.wmini span{font-size:24px;display:block}.wmini b{display:block;margin:4px 0 2px;font-size:15px}.wmini small{color:var(--mu)}
+textarea{font:inherit;font-size:16px;padding:9px 12px;border-radius:12px;border:1px solid var(--bd);background:#0c0e14;color:var(--tx);-webkit-user-select:text;user-select:text}.ib{position:relative}.nb{position:absolute;top:-5px;right:-6px;background:#e0245e;color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:1px 5px;min-width:17px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.lb{display:block;margin:14px 0 6px;color:var(--mu);font-size:13px;font-weight:600}.ck{display:block;margin:10px 0}input[type=range]{padding:0;accent-color:var(--ac)}`;document.head.appendChild(stl);
 
 const pzOn=()=>{try{return !!JSON.parse(ls('kr_pz','null'))}catch(e){return false}};
 window.KR_edit=a=>{const g=G(),hasG=a.pts&&a.pts.length>1,e0=Math.min(10,Math.max(1,a.eff||5));let et=!!a.eff;g.classList.add('on');
@@ -369,5 +371,5 @@ g.innerHTML=`<div class="gh"><b>Política de privacidade</b><button class="btn" 
 g.querySelector('#gx').onclick=()=>g.classList.remove('on')};
 window.KR_IC=IC;
 window.animFor=animFor;window.ic=ic;window.KR_extra=a=>(a.eff?`<div class="mu" style="margin:-4px 0 12px">💪 Esforço ${+a.eff}/10 · ${EFF(+a.eff)}${a.workout?' · '+esc(a.workout):''}</div>`:'')+(a.desc?`<p style="margin:0 0 12px">${esc(a.desc)}</p>`:'');
-window.KRW={lib,picks,forSport,SPORTS,parseMFPText,mfpInfo,getMFP,loadTess,preprocessImg,openMFP,openW};renderWP();if(window.renderCards)renderCards();
+window.KRW={lib,picks,forSport,SPORTS,parseMFPText,mfpInfo,getMFP,loadTess,preprocessImg,openMFP,openW,scoreRing};renderWP();if(window.renderCards)renderCards();
 })();

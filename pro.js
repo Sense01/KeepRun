@@ -661,48 +661,44 @@ window.openGarminSleep=function(){
   let gm=document.getElementById('gm');if(!gm){gm=document.createElement('div');gm.id='gm';gm.className='ov';document.body.appendChild(gm)}
   gm.classList.add('on');
   const sc=calcReadiness(),slp=sc.slp;
+  const ring=window.KRW&&KRW.scoreRing?KRW.scoreRing(sc.total,sc.color,56):`<b style="font-size:28px;color:${sc.color}">${sc.total}</b>`;
   gm.innerHTML=`
-  <div class="card" style="max-width:560px;margin:20px auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div><span class="pill" style="background:#0ea5e9;color:#fff">GARMIN SLEEP & SCORE</span><h3 style="margin:6px 0 0">⌚ Sono Garmin & Score Global</h3></div>
-      <button class="btn" id="gx">Fechar</button>
+  <div class="gh"><div><span class="pill" style="background:#0ea5e922;border-color:#0ea5e966;color:#38bdf8">GARMIN SLEEP & SCORE</span><div style="margin-top:4px">⌚ Sono Garmin & Prontidão</div></div><button class="btn" id="gx">Fechar</button></div>
+  <div class="card" style="border-color:${sc.color}55">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div><b style="font-size:16px">Score Global KeepRun</b><div class="mu">${sc.status}</div></div>
+      ${ring}
     </div>
-    <div class="card" style="background:var(--bg);border-color:${sc.color};margin:8px 0">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><b>🎯 Score Global KeepRun</b><div class="mu">${sc.status}</div></div>
-        <div style="font-size:30px;font-weight:900;color:${sc.color}">${sc.total}<span style="font-size:13px;color:var(--mu)">/100</span></div>
-      </div>
-      <div class="row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd)">
-        <div><b>😴 ${sc.sleepScore}%</b><div class="mu">Sono (${slp.hours}h · Score ${slp.score})</div></div>
-        <div><b>🥗 ${sc.nutScore}%</b><div class="mu">Nutrição (${sc.mfp.food} kcal)</div></div>
-        <div><b>🏃 ${sc.exScore}%</b><div class="mu">Exercício (${sc.wkKm.toFixed(1)}/${sc.goalKm}km)</div></div>
-      </div>
-      <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#18181b;font-size:13px;color:${sc.worst.score<75?'#fca5a5':'#6ee7b7'}">${sc.failMsg}</div>
+    <div class="row" style="margin-top:10px">
+      <div><div class="big">😴 ${sc.sleepScore}%</div><div class="mu">Sono (${slp.hours}h · ${slp.score})</div></div>
+      <div><div class="big">🥗 ${sc.nutScore}%</div><div class="mu">Nutrição (${sc.mfp.food} kcal)</div></div>
+      <div><div class="big">🏃 ${sc.exScore}%</div><div class="mu">Exercício (${sc.wkKm.toFixed(1)}/${sc.goalKm}km)</div></div>
     </div>
+    <div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--bd);font-size:13px;color:${sc.worst.score<75?'#fca5a5':'#6ee7b7'}">${sc.failMsg}</div>
+  </div>
 
-    <div class="card" style="background:var(--bg);margin:10px 0">
-      <b>📸 Anexar dados de Sono do Garmin Connect</b>
-      <p class="mu" style="margin:4px 0 8px">Anexa um <b>screenshot do Sono na app Garmin Connect</b> (leitura automática OCR) ou um ficheiro <b>CSV / JSON exportado do Garmin</b>:</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <label class="btn pri" style="cursor:pointer">⌚ Anexar Screenshot / Ficheiro Garmin<input type="file" id="grm-file" accept="image/*,.csv,.json,text/csv,application/json" style="display:none"></label>
-        <span id="grm-st" class="mu" style="font-size:12px">${slp.updatedAt?'Última sincronização: '+new Date(slp.updatedAt).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):'Pronto a importar do Garmin'}</span>
-      </div>
+  <div class="card">
+    <b>📸 Anexar dados de Sono do Garmin Connect</b>
+    <p class="mu" style="margin:4px 0 10px">Anexa um <b>screenshot do Sono na app Garmin Connect</b> (leitura automática OCR) ou um ficheiro <b>CSV / JSON exportado do Garmin</b>:</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label class="btn pri" style="cursor:pointer">⌚ Anexar Screenshot / Ficheiro Garmin<input type="file" id="grm-file" accept="image/*,.csv,.json,text/csv,application/json" style="display:none"></label>
+      <span id="grm-st" class="mu" style="font-size:12px">${slp.updatedAt?'Última sincronização: '+new Date(slp.updatedAt).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):'Pronto a importar do Garmin'}</span>
     </div>
+  </div>
 
-    <div class="card" style="background:var(--bg);margin:10px 0">
-      <b>⚙️ Dados de Sono Garmin (ajuste ou confirmação)</b>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
-        <div><label class="mu" style="font-size:12px">Horas dormidas</label><input id="grm-h" type="number" step="0.1" value="${slp.hours}"></div>
-        <div><label class="mu" style="font-size:12px">Meta Sono (h)</label><input id="grm-tg" type="number" step="0.5" value="${slp.target||8}"></div>
-        <div><label class="mu" style="font-size:12px">Garmin Score (0-100)</label><input id="grm-sc" type="number" value="${slp.score}"></div>
-        <div><label class="mu" style="font-size:12px">Sono Profundo (h)</label><input id="grm-dp" type="number" step="0.1" value="${slp.deep||1.4}"></div>
-        <div><label class="mu" style="font-size:12px">Sono REM (h)</label><input id="grm-rm" type="number" step="0.1" value="${slp.rem||1.5}"></div>
-        <div><label class="mu" style="font-size:12px">FC Repouso (bpm)</label><input id="grm-rhr" type="number" value="${slp.rhr||54}"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn pri" id="grm-sv">Guardar e Atualizar Score</button>
-        <button class="btn" id="grm-mfp">🥗 Abrir Nutrição (MyFitnessPal)</button>
-      </div>
+  <div class="card">
+    <b>⚙️ Dados de Sono Garmin (ajuste ou confirmação)</b>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:10px">
+      <div><label class="mu" style="font-size:12px">Horas dormidas</label><input id="grm-h" type="number" step="0.1" value="${slp.hours}" style="width:100%"></div>
+      <div><label class="mu" style="font-size:12px">Meta Sono (h)</label><input id="grm-tg" type="number" step="0.5" value="${slp.target||8}" style="width:100%"></div>
+      <div><label class="mu" style="font-size:12px">Garmin Score (0-100)</label><input id="grm-sc" type="number" value="${slp.score}" style="width:100%"></div>
+      <div><label class="mu" style="font-size:12px">Sono Profundo (h)</label><input id="grm-dp" type="number" step="0.1" value="${slp.deep||1.4}" style="width:100%"></div>
+      <div><label class="mu" style="font-size:12px">Sono REM (h)</label><input id="grm-rm" type="number" step="0.1" value="${slp.rem||1.5}" style="width:100%"></div>
+      <div><label class="mu" style="font-size:12px">FC Repouso (bpm)</label><input id="grm-rhr" type="number" value="${slp.rhr||54}" style="width:100%"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn pri" id="grm-sv">Guardar e Atualizar Score</button>
+      <button class="btn" id="grm-mfp">🥗 Abrir Nutrição (MyFitnessPal)</button>
     </div>
   </div>`;
   const q=s=>gm.querySelector(s);
@@ -786,22 +782,19 @@ function enhanceStats(){
   const kmMCur=sumKm(acts.filter(a=>a.date>=mCur0)),kmMPrev=sumKm(acts.filter(a=>a.date>=mPrev0&&a.date<mCur0));
   const kmYCur=sumKm(acts.filter(a=>a.date>=yCur0)),kmYPrev=sumKm(acts.filter(a=>a.date>=yPrev0&&a.date<=yPrevSame));
 
+  const ringStat=window.KRW&&KRW.scoreRing?KRW.scoreRing(rd.total,rd.color,56):`<div style="font-size:28px;font-weight:900;color:${rd.color}">${rd.total}</div>`;
   box.innerHTML=`
-  <div class="card" style="border-color:${rd.color}">
-    <div class="sh" style="margin-bottom:6px">
-      <div><b>🎯 Score Global KeepRun (Sono + Nutrição + Exercício)</b><div class="mu">${rd.status}</div></div>
-      <div style="font-size:28px;font-weight:900;color:${rd.color}">${rd.total}<span style="font-size:13px;color:var(--mu)">/100</span></div>
+  <div class="card" style="border-color:${rd.color}55">
+    <div class="sh" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">${ringStat}<div><b style="font-size:16px">Score Global KeepRun</b><div class="mu">${rd.status}</div></div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn pri" id="kr-grm-btn" style="padding:6px 12px;font-size:12px">⌚ Sono Garmin</button><button class="btn" id="kr-mfp-btn" style="padding:6px 10px;font-size:12px">🥗 MFP</button></div>
     </div>
     <div class="row" style="margin:8px 0">
-      <div><div class="big">${rd.sleepScore}%</div><div class="mu">😴 Sono Garmin (${rd.slp.hours}h)</div></div>
-      <div><div class="big">${rd.nutScore}%</div><div class="mu">🥗 Nutrição (${rd.mfp.food} kcal)</div></div>
-      <div><div class="big">${rd.exScore}%</div><div class="mu">🏃 Exercício (${rd.wkKm.toFixed(1)}/${rd.goalKm}km)</div></div>
+      <div><div class="big" style="color:${rd.sleep.c}">${rd.sleepScore}%</div><div class="mu">😴 Sono (${rd.slp.hours}h)</div><div class="prog" style="margin:6px 0 0;height:5px"><i style="width:${rd.sleepScore}%;background:${rd.sleep.c}"></i></div></div>
+      <div><div class="big" style="color:${rd.nutri.c}">${rd.nutScore}%</div><div class="mu">🥗 Nutrição (${rd.mfp.food} kcal)</div><div class="prog" style="margin:6px 0 0;height:5px"><i style="width:${rd.nutScore}%;background:${rd.nutri.c}"></i></div></div>
+      <div><div class="big" style="color:${rd.ex.c}">${rd.exScore}%</div><div class="mu">🏃 Exercício (${rd.wkKm.toFixed(1)}/${rd.goalKm}km)</div><div class="prog" style="margin:6px 0 0;height:5px"><i style="width:${rd.exScore}%;background:${rd.ex.c}"></i></div></div>
     </div>
-    <div style="margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--bg);font-size:13px;color:${rd.worst.score<75?'#fca5a5':'#6ee7b7'}">${rd.failMsg}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn pri" id="kr-grm-btn" style="padding:5px 12px;font-size:12px">⌚ Anexar Sono (Garmin)</button>
-      <button class="btn" id="kr-mfp-btn" style="padding:5px 12px;font-size:12px">🥗 Nutrição (MyFitnessPal)</button>
-    </div>
+    <div style="margin-top:8px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--bd);font-size:13px;color:${rd.worst.score<75?'#fca5a5':'#6ee7b7'}">${rd.failMsg}</div>
   </div>
   <div class="card">
     <div class="sh" style="margin-bottom:6px"><b>📈 Fitness & Freshness (Condição Física, Fadiga e Forma)</b><span class="mu">${ff.status}</span></div>
@@ -1369,9 +1362,9 @@ window.openAICoach=function(){
   ];
 
   gm.innerHTML=`
-  <div id="ai-wrap" style="position:fixed;inset:0;display:flex;flex-direction:column;width:100%;max-width:600px;height:100dvh;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));background:var(--bg);overflow:hidden;overscroll-behavior:none;touch-action:none">
+  <div id="ai-wrap" style="position:fixed;inset:0;display:flex;flex-direction:column;width:100%;max-width:600px;height:100dvh;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));background:radial-gradient(ellipse 90% 35% at 50% 0%,rgba(252,76,2,.12),transparent 65%),var(--bg);overflow:hidden;overscroll-behavior:none;touch-action:none">
     <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--bd);flex:none">
-      <div><b style="font-size:18px">Personal Trainer</b><div class="mu" style="font-size:12px">${s.wkKm.toFixed(1)}/${s.goalKm} km esta semana · ${s.ff.status}</div></div>
+      <div style="display:flex;align-items:center;gap:10px"><span class="badge" style="width:36px;height:36px;border-radius:50%;font-size:16px">🤖</span><div><b style="font-size:17px">Personal Trainer</b><div class="mu" style="font-size:12px">${s.wkKm.toFixed(1)}/${s.goalKm} km · Score ${s.readiness.total}/100</div></div></div>
       <div style="display:flex;gap:6px">
         <button class="btn" id="ai-clr" style="padding:6px 10px;font-size:12px">Limpar</button>
         <button class="btn" id="gx" style="padding:6px 12px;font-size:13px">Fechar</button>
@@ -1380,7 +1373,7 @@ window.openAICoach=function(){
 
     <div id="ai-log" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding:14px 2px;display:flex;flex-direction:column;gap:10px">
       ${aiHistory.map((m,idx)=>`
-        <div style="align-self:${m.role==='user'?'flex-end':'flex-start'};max-width:86%;background:${m.role==='user'?'var(--ac)':'var(--card)'};color:#fff;border:${m.role==='user'?'0':'1px solid var(--bd)'};padding:11px 14px;border-radius:${m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:14px;line-height:1.45;word-break:break-word">
+        <div style="align-self:${m.role==='user'?'flex-end':'flex-start'};max-width:86%;background:${m.role==='user'?'linear-gradient(135deg,#fc4c02,#ff7b24)':'linear-gradient(180deg,rgba(24,27,36,.95),rgba(17,19,26,.98))'};color:#fff;border:${m.role==='user'?'0':'1px solid var(--bd)'};padding:11px 14px;border-radius:${m.role==='user'?'18px 18px 4px 18px':'18px 18px 18px 4px'};box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:14px;line-height:1.45;word-break:break-word">
           <div>${fmtMsg(m.text)}</div>
           ${m.workout?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:10px">
             <span style="font-size:13px"><b>${window.ic?ic(m.workout.sport):'🏃'} ${esc(m.workout.name)}</b> <span class="mu">(${m.workout.dur} min)</span></span>
@@ -1390,11 +1383,11 @@ window.openAICoach=function(){
       `).join('')}
     </div>
 
-    <div style="padding-top:8px;border-top:1px solid var(--bd);flex:none">
-      <div class="chips" style="margin-bottom:8px;touch-action:pan-x">${prompts.map(p=>`<button class="chip" data-ap="${esc(p)}" style="font-size:12px;padding:5px 11px">${esc(p)}</button>`).join('')}</div>
-      <div style="display:flex;gap:8px">
-        <input id="ai-in" placeholder="Escreve uma mensagem..." autocomplete="off" style="flex:1;min-width:0;font-size:16px;border-radius:20px;padding:9px 14px">
-        <button class="btn pri" id="ai-send" style="border-radius:20px;padding:9px 18px;font-weight:600;flex:none">Enviar</button>
+    <div style="padding-top:10px;border-top:1px solid var(--bd);flex:none">
+      <div class="chips" style="margin-bottom:8px;touch-action:pan-x">${prompts.map(p=>`<button class="chip" data-ap="${esc(p)}" style="font-size:12px;padding:5px 12px">${esc(p)}</button>`).join('')}</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="ai-in" placeholder="Escreve uma mensagem..." autocomplete="off" style="flex:1;min-width:0;font-size:16px;border-radius:999px;padding:10px 16px;background:rgba(255,255,255,.05)">
+        <button class="btn pri" id="ai-send" style="border-radius:999px;padding:10px 18px;font-weight:700;flex:none">Enviar</button>
       </div>
     </div>
   </div>`;
