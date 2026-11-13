@@ -9,7 +9,15 @@
 7. Cola esses valores em `firebase-config.js`.
 8. Envia para o repositório, todos na raiz: `index.html`, `anim.js`, `treinos.js`, `social.js`, `sw.js`, `firebase-config.js`, `manifest.webmanifest`, `icon-180.png`, `icon-192.png`, `icon-512.png` (e, para referência, `firestore.rules`, `SETUP.md`, `VENDOR.md` e `README.md`).
 
-O plano gratuito (Spark) chega para uso pessoal e para um grupo de amigos.
+O plano gratuito (Spark) chega para uso pessoal, feed e amigos.
+
+## Notificações em tempo real e Push (FCM, opcional)
+- As atualizações ao vivo no sino (`#bell`) funcionam na coleção `users/{uid}/notifications`.
+- Para ativar **alertas com o ecrã bloqueado (Push)** e entrega assíncrona no servidor:
+  1. Muda o projeto Firebase para o plano **Blaze** (gratuito dentro da quota mensal generosa).
+  2. Em **Definições do projeto > Cloud Messaging > Web Push certificates**, gera um par de chaves e cola a chave pública em `vapidKey` no ficheiro `firebase-config.js`.
+  3. Instala as dependências e faz deploy: `cd functions && npm install && cd .. && firebase deploy --only functions,firestore:rules`.
+  4. No iPhone, adiciona a app ao **Ecrã Principal** (iOS 16.4+) e toca em **🔔 Ativar Push**.
 
 ## Privacidade (o que é e não é garantido)
 - Só os amigos aceites veem as tuas atividades. Cada pessoa decide o que partilha, e remover um amigo corta o acesso dos dois lados.

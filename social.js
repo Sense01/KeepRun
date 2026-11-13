@@ -1,6 +1,6 @@
 // KeepRun: contas (Google ou email) + amigos (Firebase). Usa globais do index.html.
 const V='10.14.1',G='https://www.gstatic.com/firebasejs/'+V+'/';
-const MY={};let state='init',db,auth,user=null,code='',friends=[],inc=[],FA=[],unsubs=[];
+const MY={};let state='init',db,auth,app,cfg=null,user=null,code='',friends=[],inc=[],FA=[],cloudNotifs=[],unsubs=[];
 let GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut,deleteUser,createUser,signInEmail,resetPw;
 let doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit;
 const key=a=>String(a.cloudKey||a.id).replace(/[./]/g,'_');
@@ -13,21 +13,23 @@ async function init(){
   let c;
   try{({firebaseConfig:c}=await import('./firebase-config.js'));if(!c.apiKey||c.apiKey.includes('COLE'))throw 0}catch(e){state='nocfg';renderAll();return}
   try{
+    cfg=c;
     const [A,Au,F]=await Promise.all([import(G+'firebase-app.js'),import(G+'firebase-auth.js'),import(G+'firebase-firestore.js')]);
     ({GoogleAuthProvider,signInWithPopup,signInWithRedirect,signOut,deleteUser}=Au);createUser=Au.createUserWithEmailAndPassword;signInEmail=Au.signInWithEmailAndPassword;resetPw=Au.sendPasswordResetEmail;
     ({doc,getDoc,setDoc,deleteDoc,updateDoc,collection,query,where,getDocs,onSnapshot,orderBy,limit}=F);
-    const app=A.initializeApp(c);auth=Au.getAuth(app);db=F.getFirestore(app);state='ready';Au.onAuthStateChanged(auth,onUser);
+    app=A.initializeApp(c);auth=Au.getAuth(app);db=F.getFirestore(app);state='ready';Au.onAuthStateChanged(auth,onUser);
   }catch(e){state='offline'}
   renderAll();
 }
 addEventListener('online',()=>{if(state==='offline')init()});
 async function onUser(u){
-  unsubs.forEach(f=>f());unsubs=[];friends=[];inc=[];FA=[];user=u;code='';for(const k in MY)delete MY[k];
+  unsubs.forEach(f=>f());unsubs=[];friends=[];inc=[];FA=[];cloudNotifs=[];user=u;code='';for(const k in MY)delete MY[k];
   if(u){
     if(ls('kr_wipe_'+u.uid,'')==='1'){ss('kr_wipe_'+u.uid,'');try{await deleteUser(u);toast('Dados e conta apagados')}catch(e){await signOut(auth)}renderAll();return}
     const prev=ls('kr_uid','');if(prev&&prev!==u.uid){ss('kr_share','0');ss('kr_name',uname().split(' ')[0]);ss('kr_strava_tok','');ss('kr_gemini_key','')}
     ss('kr_uid',u.uid);
     try{await ensureUser();listen()}catch(e){toast('Erro ao preparar a conta')}
+    if(typeof Notification!=='undefined'&&Notification.permission==='granted')syncPush(false);
     if(ls('kr_name','')==='')ss('kr_name',uname().split(' ')[0]);hello()}
   renderAll();KR_sync();
 }
@@ -83,6 +85,10 @@ function listen(){
   unsubs.push(onSnapshot(query(collection(db,'requests'),where('from','==',me),where('status','==','accepted')),s=>{
     s.docs.forEach(async d=>{const r=d.data();try{const u=await getDoc(doc(db,'users',r.to));
       await setDoc(doc(db,'users',me,'friends',r.to),{name:String((u.data()||{}).name||'Amigo').slice(0,60),t:Date.now()});await deleteDoc(d.ref)}catch(e){}})}));
+  unsubs.push(onSnapshot(query(collection(db,'users',me,'notifications'),orderBy('t','desc'),limit(40)),s=>{
+    cloudNotifs=s.docs.map(d=>({id:d.id,...d.data()}));renderBell();
+    const nv=document.getElementById('nv');if(nv&&nv.classList.contains('on'))showNotifs(notifs());
+  },()=>{}));
 }
 let lastFA=0;
 async function loadFA(){
@@ -136,16 +142,104 @@ async function toggleKudos(i){const p=FA[i];if(!p||!user)return;
 }
 async function addComment(i){const p=FA[i];if(!p)return;const t=prompt('Comentário');if(!t||!t.trim())return;
   try{await setDoc(doc(collection(db,'activities',p.owner,'items',p.aid,'comments')),{uid:user.uid,name:uname().slice(0,60),text:t.trim().slice(0,200),t:Date.now()});p.soc=await loadSoc(p.owner,p.aid);renderFF()}catch(e){toast('Erro')}}
-// ---- notificações ----
-function notifs(){const out=[];for(const [k,m] of Object.entries(MY)){const a=acts.find(x=>key(x)===k);if(!a)continue;
-  m.k.forEach(x=>{if(!user||x.uid!==user.uid)out.push({t:x.t,txt:`${x.name} deu um Keep a "${a.name}"`})});m.c.forEach(c=>{if(c.uid!==user.uid)out.push({t:c.t,txt:`${c.name} comentou "${a.name}": ${c.text}`})})}
-  inc.forEach(r=>out.push({t:num(r.t),txt:`${r.fromName} quer ser teu amigo`,req:true}));return out.sort((a,b)=>b.t-a.t)}
-function showNotifs(l){let g=document.getElementById('nv');if(!g){g=document.createElement('div');g.id='nv';g.className='ov';document.body.appendChild(g)}g.classList.add('on');
-  g.innerHTML='<div class="gh"><b>Notificações</b><button class="btn" id="nx">Fechar</button></div>'+(l.length?l.slice(0,30).map(x=>`<div class="gst"><div><div>${esc(x.txt)}</div><div class="mu">${x.t?new Date(x.t).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</div></div></div>`).join(''):'<p class="mu">Sem notificações.</p>');
-  g.querySelector('#nx').onclick=()=>g.classList.remove('on')}
-function renderBell(){const b=document.getElementById('bell');if(!b)return;let nb=b.querySelector('.nb');const seen=+ls('kr_seen','0'),n=user?notifs().filter(x=>x.req||x.t>seen).length:0;
-  if(n){if(!nb){nb=document.createElement('span');nb.className='nb';b.appendChild(nb)}nb.textContent=n>9?'9+':String(n)}else if(nb)nb.remove();
-  b.onclick=()=>{if(!user)return toast('Entra com a tua conta para ver notificações');showNotifs(notifs());ss('kr_seen',String(Date.now()));renderBell()}}
+// ---- notificações em tempo real + Push (FCM) ----
+const formatNotif=x=>{
+  const nm=x.actorName||'Atleta',pt=x.postTitle||'atividade',cnt=Number(x.count)||1;
+  let txt=x.txt||'';
+  if(!txt){
+    if(x.type==='friend_request')txt=`${nm} quer ser teu amigo`;
+    else if(x.type==='friend_accepted')txt=`${nm} aceitou o teu pedido de amizade`;
+    else if(x.type==='post_like')txt=cnt>1?`${nm} e mais ${cnt-1} deram Keep em "${pt}"`:`${nm} deu um Keep a "${pt}"`;
+    else if(x.type==='post_comment')txt=`${nm} comentou "${pt}": ${x.text||''}`;
+    else txt=`${nm} interagiu contigo`;
+  }
+  return{id:x.id||'',t:num(x.t),read:x.read===true,type:x.type||'',entityId:x.entityId||'',req:x.type==='friend_request',txt};
+};
+function mergeNotifs(cloud,myMap,actsList,incList,uid){
+  const out=cloud.map(formatNotif);
+  const reqCov=new Set(out.filter(x=>x.type==='friend_request').map(x=>x.entityId));
+  incList.forEach(r=>{if(!reqCov.has(r.from))out.push({id:'',t:num(r.t),read:false,type:'friend_request',entityId:r.from,req:true,txt:`${r.fromName} quer ser teu amigo`})});
+  if(!cloud.length){
+    for(const [k,m] of Object.entries(myMap||{})){
+      const a=actsList.find(x=>key(x)===k);if(!a)continue;
+      m.k.forEach(x=>{if(!uid||x.uid!==uid)out.push({id:'',t:x.t,read:false,type:'post_like',entityId:k,req:false,txt:`${x.name} deu um Keep a "${a.name}"`})});
+      m.c.forEach(c=>{if(c.uid!==uid)out.push({id:'',t:c.t,read:false,type:'post_comment',entityId:k,req:false,txt:`${c.name} comentou "${a.name}": ${c.text}`})});
+    }
+  }
+  return out.sort((a,b)=>b.t-a.t);
+}
+const countUnread=(list,seen)=>list.filter(x=>x.id?!x.read:(x.req||x.t>seen)).length;
+const notifs=()=>mergeNotifs(cloudNotifs,MY,acts,inc,user?user.uid:'');
+let msgMod=null;
+async function syncPush(ask){
+  if(!user||state!=='ready'||!app)return;
+  if(typeof Notification==='undefined'||!('serviceWorker' in navigator)||!('PushManager' in window)){
+    if(ask)toast('Push requer PWA instalada no Ecrã Principal ou browser compatível.');return;
+  }
+  if(!cfg||!cfg.vapidKey){if(ask)toast('Define vapidKey em firebase-config.js para ativar Push.');return}
+  try{
+    if(ask&&Notification.permission!=='granted'){
+      const p=await Notification.requestPermission();
+      if(p!=='granted'){toast('Permissão de notificações recusada.');renderBell();return}
+    }
+    if(Notification.permission!=='granted')return;
+    const [M,reg]=await Promise.all([msgMod||(msgMod=import(G+'firebase-messaging.js')),navigator.serviceWorker.ready]);
+    const ms=M.getMessaging(app);
+    const tok=await M.getToken(ms,{vapidKey:cfg.vapidKey,serviceWorkerRegistration:reg});
+    if(!tok)return;
+    const hBuf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(tok));
+    const tid=Array.from(new Uint8Array(hBuf)).slice(0,8).map(b=>b.toString(16).padStart(2,'0')).join('');
+    await setDoc(doc(db,'users',user.uid,'tokens',tid),{token:tok,ua:String(navigator.userAgent||'web').slice(0,40),t:Date.now()});
+    if(!syncPush._bound){syncPush._bound=1;M.onMessage(ms,()=>renderBell())}
+    if(ask){toast('Alertas Push ativos neste dispositivo!');renderAcct();const nv=document.getElementById('nv');if(nv&&nv.classList.contains('on'))showNotifs(notifs())}
+  }catch(e){if(ask)toast('Erro ao ativar Push')}
+}
+async function markRead(id){
+  if(!user||!id)return;
+  const item=cloudNotifs.find(x=>x.id===id);if(item)item.read=true;renderBell();
+  updateDoc(doc(db,'users',user.uid,'notifications',id),{read:true}).catch(()=>{});
+}
+async function markAllRead(){
+  ss('kr_seen',String(Date.now()));
+  const unread=cloudNotifs.filter(x=>x.read!==true);
+  unread.forEach(x=>{x.read=true});renderBell();
+  const nv=document.getElementById('nv');if(nv&&nv.classList.contains('on'))showNotifs(notifs());
+  if(user&&unread.length)Promise.all(unread.map(x=>updateDoc(doc(db,'users',user.uid,'notifications',x.id),{read:true}).catch(()=>{})));
+}
+function navNotif(type,entityId){
+  if(type==='friend_request'||type==='friend_accepted'){if(window.go)go('groups');return}
+  if((type==='post_like'||type==='post_comment')&&entityId){
+    const run=()=>{const a=acts.find(x=>key(x)===entityId);if(a&&window.show)show(a);else if(window.go)go('feed')};
+    if(window.KR_loaded)KR_loaded.then(run);else run();
+  }
+}
+function showNotifs(l){
+  let g=document.getElementById('nv');if(!g){g=document.createElement('div');g.id='nv';g.className='ov';document.body.appendChild(g)}
+  g.classList.add('on');
+  const seen=+ls('kr_seen','0'),un=countUnread(l,seen);
+  const canPush=typeof Notification!=='undefined'&&Notification.permission!=='granted'&&'PushManager' in window;
+  g.innerHTML=`<div class="gh" style="flex-wrap:wrap"><b>Notificações</b><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${canPush?'<button class="btn pri" id="np" style="padding:6px 10px;font-size:12px">🔔 Ativar Push</button>':''}${un?'<button class="btn" id="nra" style="padding:6px 10px;font-size:12px">Ler todas</button>':''}<button class="btn" id="nx" style="padding:6px 12px;font-size:13px">Fechar</button></div></div>`
+    +(l.length?l.slice(0,30).map((x,i)=>{
+      const isU=x.id?!x.read:(x.req||x.t>seen);
+      return `<div class="gst" data-ni="${i}" style="cursor:pointer;${isU?'background:rgba(252,76,2,.08);border-radius:12px;padding:12px 10px':'padding:12px 6px'}"><i style="width:9px;height:9px;border-radius:50%;background:${isU?'var(--ac)':'rgba(255,255,255,.14)'};flex:none"></i><div style="min-width:0"><div style="${isU?'font-weight:700':''}">${esc(x.txt)}</div><div class="mu">${x.t?new Date(x.t).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</div></div></div>`;
+    }).join(''):'<p class="mu">Sem notificações.</p>');
+  g.querySelector('#nx').onclick=()=>g.classList.remove('on');
+  if(g.querySelector('#nra'))g.querySelector('#nra').onclick=()=>markAllRead();
+  if(g.querySelector('#np'))g.querySelector('#np').onclick=()=>syncPush(true);
+  g.querySelectorAll('[data-ni]').forEach(el=>el.onclick=()=>{
+    const it=l[+el.dataset.ni];if(!it)return;
+    if(it.id)markRead(it.id);else ss('kr_seen',String(Date.now()));
+    g.classList.remove('on');navNotif(it.type,it.entityId);
+  });
+}
+function renderBell(){
+  const b=document.getElementById('bell');if(!b)return;
+  let nb=b.querySelector('.nb');
+  const seen=+ls('kr_seen','0'),n=user?countUnread(notifs(),seen):0;
+  if(n){if(!nb){nb=document.createElement('span');nb.className='nb';b.appendChild(nb)}nb.textContent=n>9?'9+':String(n)}
+  else if(nb)nb.remove();
+  b.onclick=()=>{if(!user)return toast('Entra com a tua conta para ver notificações');showNotifs(notifs());if(!cloudNotifs.length){ss('kr_seen',String(Date.now()));renderBell()}};
+}
 // ---- sincronização bidirecional (telemóvel <-> portátil + amigos, respeitando a zona de privacidade) ----
 function route(p){const z=pz();let d=0;const cum=[0];for(let i=1;i<p.length;i++){d+=hav(p[i-1],p[i]);cum.push(d)}
   const T=cum[cum.length-1],trim=T>600?200:0;
@@ -211,6 +305,7 @@ async function wipe(){
     const it=await getDocs(collection(db,'activities',me,'items'));for(const d of it.docs){for(const sub of ['kudos','comments']){const ss2=await getDocs(collection(db,'activities',me,'items',d.id,sub));for(const x of ss2.docs)await deleteDoc(x.ref)}await deleteDoc(d.ref)}
     for(const f of friends){await deleteDoc(doc(db,'users',me,'friends',f.id)).catch(()=>{});await deleteDoc(doc(db,'users',f.id,'friends',me)).catch(()=>{})}
     for(const k of ['from','to']){const rs=await getDocs(query(collection(db,'requests'),where(k,'==',me)));for(const d of rs.docs)await deleteDoc(d.ref)}
+    for(const sub of ['notifications','tokens']){try{const sn=await getDocs(collection(db,'users',me,sub));for(const d of sn.docs)await deleteDoc(d.ref)}catch(e){}}
     if(code)await deleteDoc(doc(db,'codes',code)).catch(()=>{});
     await deleteDoc(doc(db,'users',me)).catch(()=>{});ss('kr_synced_'+me,'[]');ss('kr_strava_tok','');ss('kr_gemini_key','');
     try{await deleteUser(user);toast('Dados e conta apagados')}catch(e){ss('kr_wipe_'+me,'1');await signOut(auth);toast('Dados apagados. Entra de novo para concluir a eliminação da conta.')}
@@ -230,14 +325,14 @@ function renderAcct(){const el=$('#acct');if(!el)return;let h='';
   else if(state==='init')h=sub('A carregar…');
   else if(!user)h=`<div class="card"><b>Conta</b><p class="mu">Entra para sincronizar e adicionar amigos. Ao entrares, aceitas a <a id="pv2" style="color:var(--ac);cursor:pointer">política de privacidade</a>.</p><button class="btn pri" id="gl">Entrar com Google</button> <button class="btn" id="em-t">Entrar com email</button>
     <div id="em" class="hide"><input id="em-e" type="email" placeholder="Email" style="width:100%;margin-top:10px"><input id="em-p" type="password" placeholder="Palavra-passe (mín. 6)" style="width:100%;margin-top:8px"><p><button class="btn pri" id="em-in">Entrar</button> <button class="btn" id="em-new">Criar conta</button> <button class="btn" id="em-rs">Recuperar palavra-passe</button></p></div></div>`;
-  else{const sh=ls('kr_share','1')==='1';
+  else{const sh=ls('kr_share','1')==='1',pOn=typeof Notification!=='undefined'&&Notification.permission==='granted';
     h=`<div class="card"><b>${esc(uname())}</b><div class="mu">${esc(user.email||'')}</div><p class="mu">Código de amigo: <b style="color:var(--tx)">${esc(code||'—')}</b></p>
-    <label><input type="checkbox" id="sh" ${sh?'checked':''}> Partilhar e sincronizar atividades na nuvem</label><p><button class="btn pri" id="sy-now">🔄 Sincronizar agora</button> <button class="btn" id="so">Terminar sessão</button> <button class="btn" id="wp-del">Apagar os meus dados na nuvem</button></p></div>`}
+    <label><input type="checkbox" id="sh" ${sh?'checked':''}> Partilhar e sincronizar atividades na nuvem</label><p style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="sy-now">🔄 Sincronizar agora</button>${typeof Notification!=='undefined'&&'PushManager' in window?`<button class="btn" id="psh-btn">${pOn?'🔔 Push ativo':'🔕 Ativar alertas Push'}</button>`:''}<button class="btn" id="so">Terminar sessão</button> <button class="btn" id="wp-del">Apagar os meus dados na nuvem</button></p></div>`}
   el.innerHTML=h+renderZone();
   const q=x=>el.querySelector(x);
   if(q('#pv2'))q('#pv2').onclick=()=>window.KR_policy&&KR_policy();
   if(q('#gl')){q('#gl').onclick=login;q('#em-t').onclick=()=>q('#em').classList.toggle('hide');q('#em-in').onclick=()=>emailAuth('in');q('#em-new').onclick=()=>emailAuth('new');q('#em-rs').onclick=()=>emailAuth('reset')}
-  if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);q('#so').onclick=()=>{ss('kr_strava_tok','');ss('kr_gemini_key','');signOut(auth)};q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
+  if(q('#so')){if(q('#sy-now'))q('#sy-now').onclick=()=>doSync(true);if(q('#psh-btn'))q('#psh-btn').onclick=()=>syncPush(true);q('#so').onclick=()=>{ss('kr_strava_tok','');ss('kr_gemini_key','');signOut(auth)};q('#sh').onchange=e=>{ss('kr_share',e.target.checked?'1':'0');KR_sync()};q('#wp-del').onclick=wipe}
   bindZone(el)}
 function renderFriends(){const el=$('#friends');if(!el)return;
   const stravaCard=`<div class="card"><div class="sh" style="margin-bottom:6px"><b>🧡 Perfis Strava & Importação</b></div><p class="mu" style="margin:0 0 10px">Explora perfis de outros atletas no Strava, compara estatísticas frente-a-frente ou importa as tuas atividades do Strava.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="st-prof">👤 Ver Perfis do Strava</button><button class="btn" id="st-imp">📥 Importar do Strava</button></div></div>`;
@@ -271,5 +366,7 @@ function renderFF(){const el=$('#ff');if(!el)return;el.innerHTML=FA.length?'<h3 
   el.querySelectorAll('[data-fpf]').forEach(p=>{p.onclick=()=>{const a=FA[+p.dataset.fpf];if(a&&window.openAthleteProfile)openAthleteProfile(a.owner,a.fname)}});
   el.querySelectorAll('.fk').forEach(b=>b.onclick=()=>toggleKudos(+b.dataset.i));el.querySelectorAll('.fc').forEach(b=>b.onclick=()=>addComment(+b.dataset.i))}
 function renderAll(){renderAcct();renderFriends();renderFF();renderBell()}
-window.KR_fa=()=>FA;window.KR_friendsList=()=>friends;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;
+window.KR_fa=()=>FA;window.KR_friendsList=()=>friends;window.KR_acct=renderAcct;window.KR_friends=renderFriends;window.KR_ff=renderFF;window.KR_notifs={formatNotif,mergeNotifs,countUnread};
+if(typeof navigator!=='undefined'&&navigator.serviceWorker){navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='KR_NOTIF'&&e.data.data){const d=e.data.data;if(d.nid)markRead(d.nid);navNotif(d.type,d.entityId)}})}
+if(typeof location!=='undefined'){try{const sp=new URLSearchParams(location.search);if(sp.get('tab')==='groups'||sp.get('post')){const tab=sp.get('tab'),pid=sp.get('post');history.replaceState(null,'',location.pathname);navNotif(tab==='groups'?'friend_request':'post_comment',pid||'')}}catch(e){}}
 init();

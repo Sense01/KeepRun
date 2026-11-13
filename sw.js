@@ -1,5 +1,5 @@
 // Service worker: rede primeiro para os ficheiros da app, cache-primeiro para as bibliotecas externas fixas e mosaicos de mapa.
-const C = 'keeprun-v22', T = 'keeprun-tiles-v1';
+const C = 'keeprun-v23', T = 'keeprun-tiles-v1';
 const CORE = ['./', 'index.html', 'social.js', 'treinos.js', 'pro.js', 'anim.js', 'firebase-config.js', 'manifest.webmanifest', 'icon-192.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css'];
 const EXT = ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'];
 const CDN = ['cdnjs.cloudflare.com', 'www.gstatic.com', 'cdn.jsdelivr.net'];
@@ -28,4 +28,34 @@ self.addEventListener('fetch', e => {
       return res;
     })));
   }
+});
+
+self.addEventListener('push', e => {
+  if (!e.data) return;
+  let p = {};
+  try { p = e.data.json(); } catch (err) { p = { notification: { body: e.data.text() } }; }
+  const n = p.notification || {};
+  const d = p.data || {};
+  e.waitUntil(self.registration.showNotification(n.title || 'KeepRun', {
+    body: n.body || '',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: d.tag || 'kr-notif',
+    renotify: true,
+    data: { url: d.url || './', type: d.type || '', entityId: d.entityId || '', nid: d.nid || '' }
+  }));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const d = e.notification.data || {};
+  const target = new URL(d.url || './', self.registration.scope).href;
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const win = list.find(c => 'focus' in c);
+    if (win) {
+      win.postMessage({ type: 'KR_NOTIF', data: d });
+      return win.focus();
+    }
+    return clients.openWindow(target);
+  }));
 });

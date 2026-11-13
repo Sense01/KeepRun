@@ -9,6 +9,7 @@ assert(m&&m[1],'Bloco script principal em index.html');
 new Function(m[1]);
 ['treinos.js','pro.js','anim.js','sw.js'].forEach(f=>new Function(read(f)));
 new Function(read('social.js').replace(/export /g,'').replace(/import\(/g,'Promise.resolve('));
+new Function('require','exports',read('functions/index.js'));
 
 // 2) Ambiente mínimo para testar parsers, métricas e limpeza de dados
 const store={};
@@ -62,5 +63,25 @@ window.KRPro.setSleep({hours:4.5,target:8,score:45,deep:0.6,rem:0.8,rhr:62,updat
 const rd=window.KRPro.calcReadiness();
 assert(rd.total>0&&rd.total<=100&&rd.worst.id==='sleep'&&rd.failMsg.includes('Sono (Garmin)'),'calcReadiness identifica falha no sono');
 assert(window.KRW.scoreRing(rd.total,rd.color,44).includes('<svg')&&window.KRW.scoreRing(rd.total,rd.color,44).includes('>'+rd.total+'<'),'scoreRing gera SVG radial válido');
+
+// Teste F: Notificações sociais em tempo real (formatação, colapsamento de likes, não lidas e fallback)
+const escSocial=esc,lsSocial=ls,ssSocial=ss,numSocial=num,hello=()=>{},KR_sync=()=>{},actsSocial=[{id:42,name:'Meia Maratona'}];
+new Function('acts','ls','ss','esc','num','hello','KR_sync','renderCards','toast','window','navigator','document',
+  read('social.js').replace(/export /g,'').replace(/\bimport\(/g,'(async()=>({}))('))(
+  actsSocial,lsSocial,ssSocial,escSocial,numSocial,hello,KR_sync,()=>{},toast,globalThis,window.navigator,window.document);
+const {formatNotif,mergeNotifs,countUnread}=globalThis.KR_notifs;
+assert(formatNotif({type:'post_like',actorName:'Ana',postTitle:'Treino Longo',count:4}).txt.includes('e mais 3 deram Keep'),'formatNotif colapsa likes');
+assert(formatNotif({type:'friend_accepted',actorName:'Pedro'}).txt.includes('aceitou'),'formatNotif amigo aceite');
+const merged=mergeNotifs(
+  [{id:'like_42',type:'post_like',actorName:'Ana',entityId:'42',postTitle:'Treino Longo',count:2,read:false,t:200}],
+  {'42':{k:[{uid:'u2',name:'Ana',t:100}],c:[{uid:'u3',name:'Rui',text:'Boa!',t:150}]}},
+  actsSocial,
+  [{from:'u4',fromName:'Sofia',t:300}],
+  'me'
+);
+assert(merged.length===2&&merged[0].entityId==='u4'&&merged[1].id==='like_42','mergeNotifs ordena e funde cloud + pedidos pendentes');
+assert(countUnread(merged,0)===2,'countUnread conta pedidos e notificações por ler');
+merged[1].read=true;
+assert(countUnread(merged,0)===1,'countUnread reduz após marcar lida');
 
 console.log('OK: Todos os testes passaram.');

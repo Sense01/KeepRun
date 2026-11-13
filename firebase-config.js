@@ -6,5 +6,7 @@ export const firebaseConfig = {
   projectId: "keeprun-9055e",
   storageBucket: "keeprun-9055e.firebasestorage.app",
   messagingSenderId: "541780891300",
-  appId: "1:541780891300:web:dd221bc0b31fc84a597831"
+  appId: "1:541780891300:web:dd221bc0b31fc84a597831",
+  // Opcional (Web Push FCM): Console Firebase -> Project Settings -> Cloud Messaging -> Web Push certificates
+  vapidKey: ""
 };
