@@ -246,17 +246,20 @@ function cal(){const n=new Date(),y=n.getFullYear(),m=n.getMonth(),f=(new Date(y
 const has=new Set(acts.filter(a=>{const d=new Date(a.date);return d.getFullYear()===y&&d.getMonth()===m}).map(a=>new Date(a.date).getDate()));
 let h='<div class="card" style="border-radius:0;margin-bottom:8px"><b>'+n.toLocaleDateString('pt-PT',{month:'long',year:'numeric'})+'</b><div class="cg">'+['S','T','Q','Q','S','S','D'].map(d=>`<u>${d}</u>`).join('')+'<s></s>'.repeat(f);
 for(let d=1;d<=dim;d++)h+=`<span class="${has.has(d)?'on':''}">${d}</span>`;return h+'</div></div>'}
-function renderWeek(){const w0=wkStart(),wa=acts.filter(a=>a.date>=w0),km=wa.reduce((q,a)=>q+a.dist,0)/1000,sw=streakW();
-const dd=[0,1,2,3,4,5,6].map(i=>wa.filter(a=>Math.round((new Date(a.date).setHours(0,0,0,0)-w0)/864e5)===i).reduce((q,a)=>q+a.dist,0)/1000),dm=Math.max(...dd,1);
-$('#wk').innerHTML=`<div class="car" id="car">
-<div class="sl"><div class="sh"><b>A tua sequência</b><a id="vc">Ver calendário</a></div><div class="stk"><div class="fl ${sw?'on':''}"><div class="fi">${FL}<b>${sw}</b></div><div class="mu">Semanas</div></div><div class="tx">${sw?'Continua a tua sequência semanal!':'Começa a tua sequência registando uma atividade.'}</div><button class="btn pri" id="rn">Gravar agora</button></div></div>
-<div class="sl"><div class="sh"><b>Esta semana</b></div><div class="row" style="margin-bottom:10px"><div><div class="big">${km.toFixed(1)}</div><div class="mu">km</div></div><div><div class="big">${wa.length}</div><div class="mu">atividades</div></div><div><div class="big">${fTL(wa.reduce((q,a)=>q+a.dur,0))}</div><div class="mu">tempo</div></div></div><div class="bar mini">${dd.map((v,i)=>`<div style="height:${v/dm*100}%"><span>${'STQQSSD'[i]}</span></div>`).join('')}</div></div>
-<div class="sl"><div class="sh"><b>Meta semanal</b><a id="goal">Editar</a></div><div class="big">${km.toFixed(1)} <span class="mu">/ ${goal} km</span></div><div class="prog"><i style="width:${Math.min(100,km/goal*100)}%"></i></div><div class="mu">${km>=goal?'Meta atingida! 🎉':'Faltam '+(goal-km).toFixed(1)+' km'}</div></div></div>
-<div class="dots"><i class="on"></i><i></i><i></i></div><div id="cal" class="hide"></div>`;
-const car=$('#car');car.onscroll=()=>{const i=Math.round(car.scrollLeft/car.clientWidth);document.querySelectorAll('.dots i').forEach((d,k)=>d.classList.toggle('on',k===i))};
+function renderWeek(){const w0=wkStart(),wa=acts.filter(a=>a.date>=w0),km=wa.reduce((q,a)=>q+a.dist,0)/1000,sw=streakW(),dur=wa.reduce((q,a)=>q+a.dur,0);
+$('#wk').innerHTML=`<div class="wpc" style="padding:12px 16px;margin-bottom:6px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div id="goal" style="cursor:pointer;flex:1" title="Toca para editar meta semanal">
+      <div style="display:flex;align-items:baseline;gap:6px"><b style="font-size:20px">${km.toFixed(1)}</b><span class="mu" style="font-size:13px">/ ${goal} km esta semana · ${wa.length} treino${wa.length===1?'':'s'}${dur?' · '+fTL(dur):''}</span></div>
+      <div class="prog" style="margin:6px 0 0;height:6px"><i style="width:${Math.min(100,km/goal*100)}%"></i></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex:none">
+      <span class="pill" id="vc" style="cursor:pointer;background:var(--bg);border:1px solid var(--bd);color:var(--tx)">🔥 ${sw} sem · 📅</span>
+    </div>
+  </div>
+</div><div id="cal" class="hide"></div>`;
 $('#vc').onclick=()=>{const c=$('#cal');c.innerHTML=cal();c.classList.toggle('hide')};
-$('#rn').onclick=()=>go('rec');
-$('#goal').onclick=()=>{const v=+prompt('Meta semanal (km)',goal);if(v>0){goal=v;ss('kr_goal',v);renderWeek()}}}
+$('#goal').onclick=()=>{const v=+prompt('Meta semanal (km)',goal);if(v>0){goal=v;ss('kr_goal',v);renderWeek();window.renderWP&&renderWP()}}}
 function renderCards(){const l=$('#list');acts.sort((a,b)=>b.date-a.date);const q=($('#q').value||'').toLowerCase(),nm=esc(ls('kr_name','Atleta'));
 const f=acts.filter(a=>a.name.toLowerCase().includes(q));
 l.innerHTML=f.length?'':'<p class="mu" style="padding:16px">Sem atividades. Toca em + para importar um GPX ou em Gravar.</p>';

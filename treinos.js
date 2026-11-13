@@ -308,14 +308,21 @@ el.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{sel=b.dataset.sp;rend
 el.querySelectorAll('.wc').forEach(e=>e.onclick=()=>openW(list[+e.dataset.i]));
 const spc=el.querySelector('#spc');if(oldC)spc.scrollLeft=sx;else{const on=spc.querySelector('.on');if(on)spc.scrollLeft=Math.max(0,on.offsetLeft-20)}window.scrollTo(0,oy);
 el.querySelector('#waud').onchange=e=>ss('kr_audio',e.target.checked?'1':'0');renderRoutes()};
-window.renderWP=function(){const el=$('#wp');if(!el)return;const inf=mfpInfo(),p=(inf?inf.plan:picks(intent())).slice(0,3),sc=window.KRPro&&KRPro.calcReadiness?KRPro.calcReadiness():null;
-el.innerHTML=`${sc?`<div class="wpc" id="wp-score-card" style="cursor:pointer;border:1px solid ${sc.color}44"><div class="sh" style="margin-bottom:6px"><b>⚡ Score Global KeepRun: <span style="color:${sc.color}">${sc.total}/100</span></b><a id="wp-sc-open">⌚ Sono Garmin & Score</a></div><div style="display:flex;gap:8px;font-size:12px;margin-bottom:6px"><span>😴 Sono: <b style="color:${sc.sleep.c}">${sc.sleep.s}</b> (${sc.sleep.lbl})</span><span>·</span><span>🥗 Nutrição: <b style="color:${sc.nutri.c}">${sc.nutri.s}</b></span><span>·</span><span>🏃 Exercício: <b style="color:${sc.ex.c}">${sc.ex.s}</b></span></div><div class="mu" style="font-size:12px;color:var(--tx)">${esc(sc.failMsg)}</div></div>`:''}<div class="wpc"><div class="sh"><b>Treinos para ti</b><span><a id="wpmfp" style="margin-right:12px">${inf?esc(inf.badge):'📸 MyFitnessPal'}</a><a id="wpall">Ver todos</a></span></div><div class="chips" style="margin:-4px 0 10px"><button class="chip" id="wp-grm-slp">⌚ Sono Garmin & Score</button><button class="chip" id="wp-st-imp">📥 Importar Strava</button><button class="chip" id="wp-st-prf">👤 Perfis Strava</button></div>${inf?`<div class="mu" style="margin:-2px 0 8px;font-size:12px">${esc(inf.title)} · plano ajustado à tua nutrição</div>`:''}<div class="wph">${p.map((w,i)=>`<div class="wmini" data-i="${i}"><span>${ic(w.sport)}</span><b>${esc(w.name)}</b><small>${esc(w.sport)} · ${w.dur} min · ~${estKcal(w)} kcal</small></div>`).join('')}</div></div>`;
+window.renderWP=function(){const el=$('#wp');if(!el)return;const inf=mfpInfo(),p=(inf?inf.plan:picks(intent())).slice(0,2),w0=p[0],sc=window.KRPro&&KRPro.calcReadiness?KRPro.calcReadiness():null;
+const failShort=sc?(sc.worst.score<75?`⚠️ Falha: ${sc.worst.name} (${sc.worst.reason})`:`✅ Pronto · Melhorar: ${sc.worst.name}`):'';
+el.innerHTML=`<div class="wpc" style="padding:10px 16px;margin-bottom:8px">
+  ${sc?`<div id="wp-score-card" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--bd);cursor:pointer">
+    <div style="min-width:0"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="color:${sc.color}">⚡ Score ${sc.total}/100</b><span class="mu" style="font-size:12px">😴 ${sc.sleep.s} · 🥗 ${sc.nutri.s} · 🏃 ${sc.ex.s}</span></div><div class="mu" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(failShort)}</div></div>
+    <span class="pill" style="background:var(--bg);border:1px solid var(--bd);color:var(--tx);flex:none">⌚ Garmin</span>
+  </div>`:''}
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+    ${w0?`<div class="wmini-row" data-i="0" style="display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0;flex:1"><span style="font-size:20px">${ic(w0.sport)}</span><div style="min-width:0"><b style="font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(w0.name)}</b><small class="mu" style="font-size:12px">${w0.dur} min · ~${estKcal(w0)} kcal</small></div></div>`:''}
+    <div style="display:flex;gap:8px;align-items:center;flex:none;font-size:13px"><a id="wpmfp" title="Nutrição MyFitnessPal">${inf?'🥗 '+esc(inf.badge):'🥗 MFP'}</a><a id="wpall" style="color:var(--ac);font-weight:600">Treinos →</a></div>
+  </div>
+</div>`;
 el.querySelector('#wpmfp').onclick=()=>openMFP();el.querySelector('#wpall').onclick=()=>go('wo');
 if(el.querySelector('#wp-score-card'))el.querySelector('#wp-score-card').onclick=()=>window.openGarminSleep&&openGarminSleep();
-if(el.querySelector('#wp-grm-slp'))el.querySelector('#wp-grm-slp').onclick=()=>window.openGarminSleep&&openGarminSleep();
-if(el.querySelector('#wp-st-imp'))el.querySelector('#wp-st-imp').onclick=()=>window.openStravaImport&&openStravaImport();
-if(el.querySelector('#wp-st-prf'))el.querySelector('#wp-st-prf').onclick=()=>window.openStravaProfiles&&openStravaProfiles();
-el.querySelectorAll('.wmini').forEach(e=>e.onclick=()=>openW(p[+e.dataset.i]))};
+if(el.querySelector('.wmini-row'))el.querySelector('.wmini-row').onclick=()=>openW(w0)};
 // avisos de áudio por quilómetro nas gravações
 let lk=0;setInterval(()=>{try{const s=$('#rstop');if(!s||s.classList.contains('hide')){lk=0;return}const c=calc(rp),km=Math.floor(c.dist/1000);
 if(km>lk){lk=km;chime('km')}}catch(e){}},3000);
