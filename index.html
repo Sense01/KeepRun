@@ -110,6 +110,41 @@ main{margin:0 auto 0 200px;max-width:1000px}#amap{height:calc(100dvh - 120px)}}
 html,body{touch-action:manipulation;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent;background:var(--bg);overflow-x:hidden}
 body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 input,select,textarea{font-size:16px!important;-webkit-user-select:text;user-select:text}
+/* Ecrã de gravação estilo Strava */
+#rec{max-width:520px;margin:0 auto}
+.r-box{background:var(--card);border:1px solid var(--bd);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;min-height:calc(100dvh - 170px)}
+.r-hd{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--bd)}
+.r-hd a{color:var(--ac);font-size:14px;font-weight:600;cursor:pointer;min-width:85px}
+.r-hd select{border:0;background:transparent;font-weight:700;font-size:16px;text-align:center;cursor:pointer;padding:2px 6px}
+.r-mw{position:relative;flex:1;min-height:280px;display:flex;flex-direction:column}
+#rmap{flex:1;height:100%!important;min-height:280px;margin:0!important;border-radius:0!important}
+#rmap.r-light .leaflet-tile-pane{filter:none}
+#rmap.r-3d{transform:perspective(700px) rotateX(18deg) scale(1.06);transform-origin:center bottom}
+.r-mfab{position:absolute;right:12px;bottom:14px;z-index:500;display:flex;flex-direction:column;gap:8px}
+.r-mfab button{width:38px;height:38px;border-radius:50%;border:1px solid var(--bd);background:rgba(23,23,23,.92);color:#fff;font-weight:700;font-size:12px;cursor:pointer;display:grid;place-items:center;box-shadow:0 2px 8px #0006}
+.r-mfab button.on{background:var(--ac);border-color:var(--ac)}
+.r-tel{padding:14px 16px 8px;border-top:1px solid var(--bd);background:var(--card);cursor:pointer}
+.r-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;align-items:center}
+.r-lbl{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--mu);margin-bottom:2px}
+.r-val{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.05}
+.r-pbar{display:flex;align-items:center;gap:10px}
+.r-pcol{width:24px;height:48px;background:var(--bd);border-radius:4px;display:flex;align-items:flex-end;overflow:hidden}
+.r-pcol i{display:block;width:100%;height:65%;background:#38bdf8;transition:height .4s}
+#rec.full-tel .r-mw{display:none}
+#rec.full-tel .r-tel{flex:1;display:flex;flex-direction:column;justify-content:space-around;text-align:center;padding:22px 16px}
+#rec.full-tel .r-grid{display:flex;flex-direction:column;gap:18px}
+#rec.full-tel #rt{font-size:clamp(44px,12vw,60px)}
+#rec.full-tel #rp{font-size:clamp(62px,18vw,88px);line-height:1}
+#rec.full-tel #rd{font-size:clamp(42px,11vw,54px)}
+#rec.full-tel .r-pbar{justify-content:center}
+#rec.full-tel .r-pcol{width:34px;height:68px}
+.r-icons{display:flex;justify-content:space-around;align-items:center;padding:10px 12px;border-top:1px solid var(--bd);background:var(--card)}
+.r-ic{background:none;border:0;color:var(--mu);font-size:18px;cursor:pointer;padding:6px 10px;border-radius:10px;position:relative}
+.r-ic.on{color:var(--ac)}
+.r-act{display:flex;justify-content:center;align-items:center;gap:24px;padding:14px 16px 18px;background:var(--card)}
+.r-main{width:74px;height:74px;border-radius:50%;border:0;background:var(--ac);color:#fff;font-weight:800;font-size:12px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;display:grid;place-items:center;box-shadow:0 6px 18px #fc4c0266}
+.r-sub{width:48px;height:48px;border-radius:50%;border:1px solid var(--bd);background:var(--bg);color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center}
+.r-sub.bcn{background:#fc4c0222;border-color:var(--ac);color:var(--ac)}
 </style>
 </head>
 <body>
@@ -120,12 +155,33 @@ input,select,textarea{font-size:16px!important;-webkit-user-select:text;user-sel
 <main>
 <section id="feed"><div id="sbar" class="hide"><input id="q" placeholder="Pesquisar atividades"></div><div id="wk"></div><div id="wp"></div><div id="ff"></div><div id="list"></div></section>
 <section id="detail" class="hide"></section>
-<section id="rec" class="hide"><div class="card">
-<select id="rtype"><option>Corrida</option><option>Bicicleta</option><option>Caminhada</option></select>
-<div id="rmap"></div>
-<div class="row"><div><div class="big" id="rd">0.00</div><div class="mu">km</div></div><div><div class="big" id="rt">00:00</div><div class="mu">tempo</div></div><div><div class="big" id="rp">--</div><div class="mu">ritmo</div></div></div>
-<p><button class="btn pri" id="rstart">Iniciar</button> <button class="btn hide" id="rstop">Terminar e guardar</button></p>
-<p class="mu">Usa o GPS do dispositivo. Mantém o ecrã ligado durante a gravação.</p></div></section>
+<section id="rec" class="hide"><div class="r-box">
+<div class="r-hd"><a id="r-close">Fechar</a><select id="rtype" aria-label="Desporto"><option>Corrida</option><option>Bicicleta</option><option>Caminhada</option><option>Trail</option></select><a id="r-mode" style="text-align:right">Ecrã cheio</a></div>
+<div class="r-mw"><div id="rmap"></div><div class="r-mfab"><button id="rm-3d" title="Vista 3D">3D</button><button id="rm-lyr" title="Estilo do mapa">🗺️</button><button id="rm-loc" title="Centrar no GPS">◎</button></div></div>
+<div id="kr-live-seg" class="hide" style="background:#1e293b;border-top:1px solid #eab308;padding:8px 14px"></div>
+<div class="r-tel" id="r-tel" title="Toca para alternar ecrã gigante">
+  <div class="r-grid">
+    <div><div class="r-lbl">Tempo</div><div class="r-val" id="rt">00:00</div></div>
+    <div><div class="r-lbl">Distância (km)</div><div class="r-val" id="rd">0.00</div></div>
+    <div><div class="r-lbl">Ritmo médio (/km)</div><div class="r-val" id="rp">--</div></div>
+    <div class="r-pbar"><div class="r-pcol"><i id="r-bar"></i></div><div><div class="r-lbl">Parcial atual</div><b id="r-sp-lbl" style="font-size:15px">-- /km</b></div></div>
+  </div>
+</div>
+<div class="r-icons">
+  <button class="r-ic" id="ri-rt" title="Rotas sugeridas">🗺️</button>
+  <button class="r-ic on" id="ri-sp" title="Desporto">👟</button>
+  <button class="r-ic" id="ri-hr" title="Frequência Cardíaca est.">❤️ <small id="ri-hr-v" style="font-size:11px">--</small></button>
+  <button class="r-ic" id="ri-bcn" title="KeepRun Beacon (Segurança)">📡</button>
+  <button class="r-ic on" id="ri-aud" title="Avisos de áudio">🔊</button>
+</div>
+<div class="r-act">
+  <button class="r-sub hide" id="rpause" title="Pausa / Continuar">⏸</button>
+  <button class="r-main" id="rstart">Iniciar</button>
+  <button class="r-main hide" id="rstop" title="Terminar e guardar"><span style="width:22px;height:22px;background:#fff;border-radius:4px;display:block"></span></button>
+  <button class="r-sub bcn" id="r-sos" title="Partilhar localização Beacon SOS">📍</button>
+</div>
+<div id="kr-rec-pro" class="hide"></div>
+</div></section>
 <section id="stats" class="hide"></section>
 <section id="maps" class="hide"><div id="amap"></div></section>
 <section id="groups" class="hide"></section>
@@ -260,25 +316,53 @@ function exportGPX(a){const T={Corrida:'running',Bicicleta:'cycling',Caminhada:'
 const g=`<?xml version="1.0"?><gpx version="1.1" creator="KeepRun" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${esc(a.name)}</name><type>${esc(T)}</type><trkseg>`+
 a.pts.map(p=>{const d=new Date(p[3]&&isFinite(p[3])&&p[3]>0?p[3]:Date.now()),iso=isFinite(d.getTime())?d.toISOString():new Date().toISOString();return `<trkpt lat="${+p[0]||0}" lon="${+p[1]||0}">${p[2]!=null&&isFinite(+p[2])?`<ele>${+p[2]}</ele>`:''}<time>${iso}</time></trkpt>`}).join('')+'</trkseg></trk></gpx>';
 const u=URL.createObjectURL(new Blob([g],{type:'application/gpx+xml'})),l=document.createElement('a');l.href=u;l.download=String(a.name||'atividade').replace(/[\\/:*?"<>|]/g,'_')+'.gpx';l.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
-// Gravação
-var rmap,rline,wid,tick,rp=[],t0;
+// Gravação estilo Strava
+var rmap,rline,rdot,wid,tick,rp=[],t0,rPaused=false,rPauseT=0,rPauseAcc=0;
 let rwl=null,rrec=false,lastSave=0;
 const wlReq=async()=>{try{rwl=await navigator.wakeLock.request('screen')}catch(e){}};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&rrec)wlReq()});
 const saveRec=()=>{if(rrec&&rp.length>1)idbSet('rec',{t0,type:$('#rtype').value,pts:rp})};
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveRec()});addEventListener('pagehide',saveRec);
+function initRecMap(){
+  if(!window.L)return;
+  if(!rmap){
+    rmap=L.map('rmap',{zoomControl:false}).setView([38.72,-9.14],15);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(rmap);
+    rline=L.polyline([],{color:'#3b82f6',weight:5}).addTo(rmap);
+    rdot=L.circleMarker([38.72,-9.14],{radius:8,color:'#fff',weight:3,fillColor:'#3b82f6',fillOpacity:1}).addTo(rmap);
+  }
+  setTimeout(()=>rmap.invalidateSize(),60);
+  if(navigator.geolocation&&!rrec){
+    navigator.geolocation.getCurrentPosition(p=>{
+      const ll=[p.coords.latitude,p.coords.longitude];
+      if(rdot)rdot.setLatLng(ll);if(rmap)rmap.setView(ll,16);
+    },()=>{},{enableHighAccuracy:true,timeout:6000});
+  }
+}
+const toggleFullTel=()=>{const s=$('#rec');s.classList.toggle('full-tel');const f=s.classList.contains('full-tel');$('#r-mode').textContent=f?'Ver mapa':'Ecrã cheio';if(!f&&rmap)setTimeout(()=>rmap.invalidateSize(),60)};
+$('#r-mode').onclick=toggleFullTel;$('#r-tel').onclick=toggleFullTel;
+$('#r-close').onclick=()=>{if(rrec)toggleFullTel();else go('feed')};
+$('#rm-3d').onclick=e=>{e.currentTarget.classList.toggle('on');$('#rmap').classList.toggle('r-3d')};
+$('#rm-lyr').onclick=e=>{e.currentTarget.classList.toggle('on');$('#rmap').classList.toggle('r-light')};
+$('#rm-loc').onclick=()=>{if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];if(rdot)rdot.setLatLng(ll);if(rmap)rmap.setView(ll,16)},()=>toast('A aguardar sinal GPS…'))};
+$('#ri-rt').onclick=()=>go('wo');
+$('#ri-sp').onclick=()=>{const s=$('#rtype');s.selectedIndex=(s.selectedIndex+1)%s.options.length;toast('Desporto: '+s.value)};
+$('#ri-aud').onclick=e=>{const on=ls('kr_audio','1')!=='1';ss('kr_audio',on?'1':'0');e.currentTarget.classList.toggle('on',on);toast(on?'🔊 Avisos de áudio ativos':'🔇 Áudio silenciado')};
+$('#rpause').onclick=()=>{if(!rrec)return;rPaused=!rPaused;$('#rpause').textContent=rPaused?'▶':'⏸';if(rPaused){rPauseT=Date.now();toast('Gravação em pausa')}else{rPauseAcc+=Date.now()-rPauseT;toast('Gravação retomada')}};
 $('#rstart').onclick=()=>{if(!navigator.geolocation)return alert('Sem GPS');
-rp=[];t0=Date.now();rrec=true;lastSave=0;$('#rstart').classList.add('hide');$('#rstop').classList.remove('hide');
-try{if(window.L){if(!rmap){rmap=L.map('rmap').setView([38.72,-9.14],14);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:ATTR}).addTo(rmap);rline=L.polyline([],{color:'#fc4c02',weight:4}).addTo(rmap)}rline.setLatLngs([])}}catch(e){}
+rp=[];t0=Date.now();rrec=true;rPaused=false;rPauseAcc=0;lastSave=0;$('#rstart').classList.add('hide');$('#rstop').classList.remove('hide');$('#rpause').classList.remove('hide');$('#rpause').textContent='⏸';$('#r-close').textContent='Ocultar';
+initRecMap();try{if(rline)rline.setLatLngs([])}catch(e){}
 wlReq();
 wid=navigator.geolocation.watchPosition(p=>{if(p.coords.accuracy>40)return;const q=[p.coords.latitude,p.coords.longitude,p.coords.altitude,p.timestamp],l=rp[rp.length-1];
+try{if(rdot)rdot.setLatLng([q[0],q[1]])}catch(e){}
+if(rPaused)return;
 if(l&&hav(l,q)<3&&q[3]-l[3]<10000)return;rp.push(q);
 try{if(rline){rline.addLatLng([q[0],q[1]]);rmap.setView([q[0],q[1]])}}catch(e){}
 upd();if(Date.now()-lastSave>10000){lastSave=Date.now();idbSet('rec',{t0,type:$('#rtype').value,pts:rp})}},e=>alert('GPS: '+e.message),{enableHighAccuracy:true});
 tick=setInterval(upd,1000)};
-function upd(){const s=(Date.now()-t0)/1000,c=calc(rp);$('#rd').textContent=(c.dist/1000).toFixed(2);$('#rt').textContent=fT(s);$('#rp').textContent=fP(c.dist,s)}
-$('#rstop').onclick=()=>{navigator.geolocation.clearWatch(wid);clearInterval(tick);rrec=false;try{rwl&&rwl.release()}catch(e){}idbSet('rec',null);
-$('#rstart').classList.remove('hide');$('#rstop').classList.add('hide');
+function upd(){if(rPaused)return;const s=Math.max(0,(Date.now()-t0-rPauseAcc)/1000),c=calc(rp);$('#rd').textContent=(c.dist/1000).toFixed(2);$('#rt').textContent=fT(s);const pStr=c.dist>5?fT(s/(c.dist/1000)):'--';$('#rp').textContent=pStr;$('#r-sp-lbl').textContent=pStr==='--'?'-- /km':pStr+' /km';const ratio=c.dist>5?Math.max(20,Math.min(100,Math.round(330/(s/(c.dist/1000))*70))):45;$('#r-bar').style.height=ratio+'%';$('#ri-hr-v').textContent=c.dist>5?Math.min(188,Math.round(128+ratio*0.45)):'132'}
+$('#rstop').onclick=()=>{navigator.geolocation.clearWatch(wid);clearInterval(tick);rrec=false;rPaused=false;try{rwl&&rwl.release()}catch(e){}idbSet('rec',null);
+$('#rstart').classList.remove('hide');$('#rstop').classList.add('hide');$('#rpause').classList.add('hide');$('#r-close').textContent='Fechar';$('#rec').classList.remove('full-tel');
 if(rp.length<2)return alert('Pontos GPS insuficientes');
 const ty=$('#rtype').value,c=calc(rp);acts.push({id:Date.now(),name:ty+' '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}),type:ty,date:rp[0][3],pts:thin(rp),...c});save();renderList();go('feed')};
 loaded.then(async()=>{if(rrec)return;const r=await idbGet('rec');if(!r||!r.pts||r.pts.length<2)return;const c=calc(r.pts);
@@ -296,7 +380,7 @@ s.innerHTML=`<div id="acct"></div>${BK}<div class="card"><b>${esc(ls('kr_name','
 <div class="card"><b>Recordes pessoais</b><p>Maior distância: ${longest&&longest.dist>0?(longest.dist/1000).toFixed(2)+' km ('+esc(longest.name)+')':'--'}</p><p>Melhor ritmo (corrida): ${best?fP(best.dist,best.dur)+' ('+esc(best.name)+')':'--'}</p></div>`;window.KR_acct&&window.KR_acct();bindBackup();$('#nm').onclick=()=>{const n=prompt('O teu nome',ls('kr_name','Atleta'));if(n){ss('kr_name',n.slice(0,30));renderStats();hello()}}}
 function go(v){window.fixBar&&setTimeout(window.fixBar,50);document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hide',s.id!==v));
 document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='detail'||v==='wo'?'feed':v)));window.scrollTo(0,0);
-if(v==='stats')renderStats();if(v==='maps')renderMaps();if(v==='groups')renderGroups();if(v==='wo')window.renderWO&&renderWO();if(v==='rec'&&rmap)setTimeout(()=>rmap.invalidateSize(),50)}
+if(v==='stats')renderStats();if(v==='maps')renderMaps();if(v==='groups')renderGroups();if(v==='wo')window.renderWO&&renderWO();if(v==='rec')initRecMap()}
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.v));
 
 // ---- TCX, edição, migração de subida, cópia de segurança ----
@@ -311,7 +395,7 @@ if(!t&&!d)throw new Error('TCX sem dados');return{id:Date.now()+Math.random(),na
 function recalcElev(a){if(!a.pts||a.pts.length<2)return a.elev||0;const nz=a.pts.some(p=>p[2]!=null&&p[2]!==0);
 a.pts=a.pts.map(p=>[p[0],p[1],(nz&&p[2]===0)?null:p[2],p[3]]);a.elev=calc(a.pts).elev;return a.elev}
 loaded.then(()=>{if(ls('kr_mig1','')==='1')return;let n=0;acts.forEach(a=>{const o=a.elev||0;recalcElev(a);if(Math.abs((a.elev||0)-o)>1)n++});ss('kr_mig1','1');if(n){save();renderList();toast(`Corrigi a subida de ${n} atividade${n>1?'s':''}`)}});
-const BKEYS=['kr_name','kr_goal','kr_intent','kr_share','kr_audio','kr_pz','kr_mfp','kr_prof','kr_goals','kr_segs','kr_off_routes','kr_plan','kr_plan_done','kr_strava_profs'];
+const BKEYS=['kr_name','kr_goal','kr_intent','kr_share','kr_audio','kr_pz','kr_mfp','kr_sleep','kr_prof','kr_goals','kr_segs','kr_off_routes','kr_plan','kr_plan_done','kr_strava_profs'];
 const BK='<div class="card"><b>Cópia de segurança</b><p class="mu">Guarda todas as tuas atividades e definições num ficheiro, ou restaura-as a partir de uma cópia.</p><button class="btn" id="bk-ex">Exportar tudo</button> <label class="btn">Importar cópia<input id="bk-im" type="file" accept=".json,application/json" hidden></label> <button class="btn" id="pv">Política de privacidade</button></div>';
 function cleanAct(a){if(!a||typeof a!=='object'||!Array.isArray(a.pts))return null;const n=x=>isFinite(+x)?+x:0;
 const pts=a.pts.slice(0,20000).filter(p=>Array.isArray(p)&&p[0]!=null&&p[1]!=null&&p[0]!==''&&p[1]!==''&&isFinite(+p[0])&&isFinite(+p[1])&&Math.abs(+p[0])<=90&&Math.abs(+p[1])<=180).map(p=>[+p[0],+p[1],p[2]==null||!isFinite(+p[2])?null:+p[2],n(p[3])]);
@@ -333,6 +417,7 @@ else if(k==='kr_goal'){const g=+v;if(isFinite(g)&&g>0&&g<=10000){goal=g;ss(k,Str
 else if(k==='kr_intent'){if(['base','veloc','recup','forca','diversao'].includes(v))ss(k,v)}
 else if(k==='kr_share'||k==='kr_audio'){if(v==='0'||v==='1')ss(k,v)}
 else if(k==='kr_mfp'){try{const m=JSON.parse(v);if(m&&isFinite(+m.food)&&isFinite(+m.goal))ss(k,v)}catch(x){}}
+else if(k==='kr_sleep'){try{const s=JSON.parse(v);if(s&&isFinite(+s.hours))ss(k,v)}catch(x){}}
 else if(k==='kr_prof'||k==='kr_plan_done'){try{const o=JSON.parse(v);if(o&&typeof o==='object'&&!Array.isArray(o))ss(k,v)}catch(x){}}
 else if(['kr_goals','kr_segs','kr_off_routes','kr_strava_profs'].includes(k)){try{if(Array.isArray(JSON.parse(v)))ss(k,v)}catch(x){}}
 else if(k==='kr_plan'){if(/^p_[a-z0-9_]{1,15}$/i.test(v))ss(k,v)}

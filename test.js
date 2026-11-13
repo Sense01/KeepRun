@@ -52,4 +52,14 @@ assert(nImp===1&&acts.length===1&&acts[0].dist===5200&&acts[0].pts.length===2,'i
 const m1=window.KRPro.analyzeAct(acts[0]),m2=window.KRPro.analyzeAct(acts[0]);
 assert(m1===m2&&m1.relEffort>0&&m1.avgW>0,'analyzeAct memoização e métricas');
 
+// Teste E: parseGarminSleep + calcReadiness (Score Global Sono Garmin + Alimentação + Exercício e diagnóstico de falha)
+const slp1=window.KRPro.parseGarminSleep('Duração 6h 30m Pontuação de sono 62 Profundo 1h 12m REM 1h 00m Repouso 56 bpm');
+assert(slp1.hours===6.5&&slp1.score===62&&slp1.deep===1.2&&slp1.rem===1&&slp1.rhr===56,'parseGarminSleep OCR');
+const rdNoEx=window.KRPro.calcReadiness();
+assert(rdNoEx.worst.id==='ex'&&rdNoEx.failMsg.includes('Exercício'),'calcReadiness identifica falha no exercício quando 0 km na semana');
+acts[0].date=Date.now();acts[0].dist=18000;
+window.KRPro.setSleep({hours:4.5,target:8,score:45,deep:0.6,rem:0.8,rhr:62,updatedAt:Date.now()});
+const rd=window.KRPro.calcReadiness();
+assert(rd.total>0&&rd.total<=100&&rd.worst.id==='sleep'&&rd.failMsg.includes('Sono (Garmin)'),'calcReadiness identifica falha no sono');
+
 console.log('OK: Todos os testes passaram.');

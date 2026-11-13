@@ -513,38 +513,29 @@ let beaconOn=ls('kr_beacon','0')==='1',beaconContacts=getJSON('kr_beacon_c',[]),
 if(!beaconId){const b=new Uint32Array(3);crypto.getRandomValues(b);beaconId='BCN-'+Array.from(b,x=>(x%36).toString(36)).join('').toUpperCase().slice(0,8);ss('kr_beacon_id',beaconId)}
 
 function setupRecPro(){
-  const recCard=document.querySelector('#rec .card');if(!recCard||recCard.querySelector('#kr-rec-pro'))return;
-  const box=document.createElement('div');box.id='kr-rec-pro';
-  box.innerHTML=`
-    <div id="kr-live-seg" class="card hide" style="background:#1e293b;border-color:#eab308;margin:10px 0"></div>
-    <div class="card" style="background:var(--bg);margin:10px 0;padding:10px 12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <div><b>📡 KeepRun Beacon (Segurança em tempo real)</b><div class="mu" id="kr-bcn-st">${beaconOn?'Ativo: partilha de localização pronta':'Desativado: partilha a tua posição com contactos de segurança'}</div></div>
-        <div style="display:flex;gap:6px">
-          <button class="btn ${beaconOn?'pri':''}" id="kr-bcn-tg" style="padding:5px 10px;font-size:12px">${beaconOn?'📡 Beacon ON':'Ativar Beacon'}</button>
-          <button class="btn" id="kr-bcn-sh" style="padding:5px 10px;font-size:12px">Enviar Link SOS</button>
-        </div>
-      </div>
-    </div>`;
-  recCard.appendChild(box);
-  box.querySelector('#kr-bcn-tg').onclick=()=>{
-    beaconOn=!beaconOn;ss('kr_beacon',beaconOn?'1':'0');
-    if(beaconOn&&!beaconContacts.length){
-      const c=prompt('Contacto de segurança (nome ou telefone para emergências):','Contacto de Emergência');
-      if(c){beaconContacts=[c.slice(0,50)];setJSON('kr_beacon_c',beaconContacts)}
-    }
-    box.querySelector('#kr-bcn-tg').classList.toggle('pri',beaconOn);
-    box.querySelector('#kr-bcn-tg').textContent=beaconOn?'📡 Beacon ON':'Ativar Beacon';
-    box.querySelector('#kr-bcn-st').textContent=beaconOn?`Ativo (${beaconContacts[0]||'Contacto configurado'}) · ID ${beaconId}`:'Desativado';
-  };
-  box.querySelector('#kr-bcn-sh').onclick=async()=>{
-    const lastPt=(window.rp&&rp.length)?rp[rp.length-1]:null;
-    const mapUrl=lastPt?`https://www.openstreetmap.org/?mlat=${lastPt[0].toFixed(5)}&mlon=${lastPt[1].toFixed(5)}#map=16/${lastPt[0].toFixed(5)}/${lastPt[1].toFixed(5)}`:'https://www.openstreetmap.org';
-    let bat='';try{if(navigator.getBattery){const b=await navigator.getBattery();bat=` · Bateria ${Math.round(b.level*100)}%`}}catch(e){}
-    const msg=`📡 KeepRun Beacon (${ls('kr_name','Atleta')}) — Estou a treinar agora (${$('#rt')?.textContent||'00:00'}, ${$('#rd')?.textContent||'0.00'} km${bat}). Localização em tempo real: ${mapUrl}`;
-    if(navigator.share)navigator.share({title:'KeepRun Beacon',text:msg}).catch(()=>{});
-    else{try{navigator.clipboard.writeText(msg)}catch(e){}toast('Link Beacon copiado para enviar aos contactos!')}
-  };
+  const bcnBtn=document.querySelector('#ri-bcn'),sosBtn=document.querySelector('#r-sos');
+  if(bcnBtn){
+    bcnBtn.classList.toggle('on',beaconOn);
+    bcnBtn.onclick=()=>{
+      beaconOn=!beaconOn;ss('kr_beacon',beaconOn?'1':'0');
+      if(beaconOn&&!beaconContacts.length){
+        const c=prompt('Contacto de segurança (nome ou telefone para emergências):','Contacto de Emergência');
+        if(c){beaconContacts=[c.slice(0,50)];setJSON('kr_beacon_c',beaconContacts)}
+      }
+      bcnBtn.classList.toggle('on',beaconOn);
+      toast(beaconOn?`📡 Beacon ON (${beaconContacts[0]||'Contacto configurado'} · ID ${beaconId})`:'📡 Beacon desativado');
+    };
+  }
+  if(sosBtn){
+    sosBtn.onclick=async()=>{
+      const lastPt=(window.rp&&rp.length)?rp[rp.length-1]:null;
+      const mapUrl=lastPt?`https://www.openstreetmap.org/?mlat=${lastPt[0].toFixed(5)}&mlon=${lastPt[1].toFixed(5)}#map=16/${lastPt[0].toFixed(5)}/${lastPt[1].toFixed(5)}`:'https://www.openstreetmap.org';
+      let bat='';try{if(navigator.getBattery){const b=await navigator.getBattery();bat=` · Bateria ${Math.round(b.level*100)}%`}}catch(e){}
+      const msg=`📡 KeepRun Beacon (${ls('kr_name','Atleta')}) — Estou a treinar agora (${$('#rt')?.textContent||'00:00'}, ${$('#rd')?.textContent||'0.00'} km${bat}). Localização em tempo real: ${mapUrl}`;
+      if(navigator.share)navigator.share({title:'KeepRun Beacon',text:msg}).catch(()=>{});
+      else{try{navigator.clipboard.writeText(msg)}catch(e){}toast('Link SOS Beacon copiado para enviar aos contactos!')}
+    };
+  }
 }
 
 // Monitorização em tempo real de Live Segments durante a gravação GPS (com cache de RP)
@@ -557,7 +548,7 @@ function getCachedSegPr(target){
 setInterval(()=>{
   const stopBtn=document.querySelector('#rstop'),liveBox=document.querySelector('#kr-live-seg');
   if(!stopBtn||stopBtn.classList.contains('hide')||!liveBox||!window.rp||rp.length<2){if(liveBox)liveBox.classList.add('hide');return}
-  const c=calc(rp),curD=c.dist,curT=(Date.now()-t0)/1000;
+  const c=calc(rp),curD=c.dist,curT=Math.max(1,(Date.now()-t0-(window.rPauseAcc||0))/1000);
   // Verifica Live Segment de 400m, 1km ou 5km em curso
   const target=curD<400?DEFAULT_SEGS[0]:curD<1000?DEFAULT_SEGS[1]:DEFAULT_SEGS[2];
   const pr=getCachedSegPr(target);
@@ -570,11 +561,195 @@ setInterval(()=>{
   </div>`;
 },1500);
 
+// ---------- 10B. Sono Garmin + Score Global KeepRun (Sono + Alimentação + Exercício) ----------
+function getSleep(){return getJSON('kr_sleep',{hours:7.2,target:8,score:78,deep:1.4,rem:1.5,rhr:54,updatedAt:0})}
+function setSleep(v){setJSON('kr_sleep',v)}
+
+// Extrai dados de sono Garmin Connect a partir de texto OCR de screenshot ou CSV/JSON Garmin
+function parseGarminSleep(raw){
+  const t=String(raw||'').replace(/\r/g,' ');
+  let hours=0,score=0,deep=0,rem=0,rhr=0;
+  // Tenta JSON Garmin Connect
+  try{
+    const j=JSON.parse(t),dto=j.dailySleepDTO||j;
+    if(dto&&(dto.sleepTimeSeconds||dto.sleepHours)){
+      hours=dto.sleepHours||+((dto.sleepTimeSeconds/3600).toFixed(1));
+      score=dto.sleepScores?.overall?.value||dto.sleepScore||dto.score||0;
+      deep=dto.deepSleepSeconds?+((dto.deepSleepSeconds/3600).toFixed(1)):(dto.deep||0);
+      rem=dto.remSleepSeconds?+((dto.remSleepSeconds/3600).toFixed(1)):(dto.rem||0);
+      rhr=dto.restingHeartRate||dto.rhr||0;
+    }
+  }catch(e){}
+  if(!hours){
+    // Horas e minutos de sono (ex: "7h 30m", "7 h 45 min", "7:30")
+    const hm=t.match(/(\d{1,2})\s*h(?:oras?)?\s*(\d{1,2})\s*m/i)||t.match(/(?:dura[cç][aã]o|sleep|sono)[^\d]{0,20}(\d{1,2})[:h](\d{2})/i);
+    if(hm)hours=+(+hm[1]+(+hm[2]/60)).toFixed(1);
+    else{
+      const hOnly=t.match(/(\d{1,2}(?:[.,]\d)?)\s*(?:h|horas|hrs)\b/i);
+      if(hOnly)hours=+hOnly[1].replace(',','.');
+    }
+  }
+  if(!score){
+    const sc=t.match(/(?:pontua[cç][aã]o|score|qualidade)[^\d]{0,25}(\d{2,3})\b/i)||t.match(/\b(\d{2})\s*\/\s*100\b/);
+    if(sc&&+sc[1]>=10&&+sc[1]<=100)score=+sc[1];
+  }
+  const dp=t.match(/(?:profundo|deep)[^\d]{0,16}(\d{1,2})\s*h\s*(\d{1,2})?/i);
+  if(dp&&!deep)deep=+(+dp[1]+((+dp[2]||0)/60)).toFixed(1);
+  const rm=t.match(/(?:rem)[^\d]{0,16}(\d{1,2})\s*h\s*(\d{1,2})?/i);
+  if(rm&&!rem)rem=+(+rm[1]+((+rm[2]||0)/60)).toFixed(1);
+  const rh=t.match(/(?:repouso|rhr|resting|fc)[^\d]{0,16}(\d{2,3})\s*bpm/i);
+  if(rh&&!rhr)rhr=+rh[1];
+  hours=clamp(hours||7.0,2,14);
+  if(!score)score=clamp(Math.round((hours/8)*82+(deep>=1.2?8:0)+(rem>=1.2?6:0)),25,100);
+  return{hours,target:8,score:clamp(score,10,100),deep:deep||+(hours*0.18).toFixed(1),rem:rem||+(hours*0.20).toFixed(1),rhr:rhr||54,updatedAt:Date.now()};
+}
+
+// Calcula o Score Global KeepRun (0-100) combinando Sono (Garmin), Alimentação (MFP) e Exercício (KeepRun) e identifica onde o atleta está a falhar
+function calcReadiness(){
+  const slp=getSleep(),prof=getProf(),ff=calcFitnessCurve(30),w0=wkStart();
+  const wkKm=acts.filter(a=>a.date>=w0).reduce((s,a)=>s+a.dist,0)/1000,goalKm=+ls('kr_goal',20)||20;
+  const mfp=(window.KRW&&KRW.getMFP&&KRW.getMFP())||{goal:2200,food:1850,exercise:0,carbs:210,protein:130,fat:60,updatedAt:0};
+
+  // 1. Score de Sono Garmin (0-100, peso 35%)
+  const sleepDurPct=clamp((slp.hours/(slp.target||8))*100,0,110);
+  const sleepScore=clamp(Math.round((slp.score||75)*0.6+Math.min(100,sleepDurPct)*0.4),0,100);
+
+  // 2. Score de Alimentação MyFitnessPal (0-100, peso 30%)
+  const calTarget=(mfp.goal||2000)+(mfp.exercise||0);
+  const calDiff=Math.abs((mfp.food||0)-calTarget);
+  const calScore=mfp.food>0?clamp(Math.round(100-(calDiff/Math.max(500,calTarget))*110),20,100):65;
+  const protTarget=Math.round((prof.kg||70)*1.6);
+  const protScore=mfp.protein>0?clamp(Math.round((mfp.protein/protTarget)*100),25,100):65;
+  const nutScore=Math.round(calScore*0.6+protScore*0.4);
+
+  // 3. Score de Exercício KeepRun (0-100, peso 35%)
+  const todayDow=(new Date().getDay()+6)%7+1; // 1=Seg .. 7=Dom
+  const expectedRatio=Math.max(0.25,todayDow/7);
+  const volRatio=wkKm/Math.max(1,goalKm*expectedRatio);
+  const volScore=clamp(Math.round(volRatio*85),15,100);
+  const formVal=ff.cur.form;
+  const loadScore=formVal<-25?45:formVal>20&&wkKm<2?50:88;
+  const exScore=Math.round(volScore*0.65+loadScore*0.35);
+
+  const total=Math.round(sleepScore*0.35+nutScore*0.30+exScore*0.35);
+  const color=total>=80?'#10b981':total>=60?'#eab308':'#ef4444';
+  const status=total>=80?'Pronto para Alta Performance':total>=60?'Equilíbrio Moderado':'Atenção: Recuperação / Hábitos em Falha';
+
+  // Diagnóstico claro de onde o atleta está a falhar
+  const pillars=[
+    {id:'sleep',name:'Sono (Garmin)',score:sleepScore,reason:slp.hours<6.5?`Dormiste apenas ${slp.hours}h (meta ${slp.target||8}h)`:`Qualidade de sono Garmin baixa (${slp.score}/100)`,fix:`Deita-te 45 min mais cedo hoje para atingir ${slp.target||8}h e reduz o ritmo de treino em 10–15s/km.`},
+    {id:'nut',name:'Alimentação (Nutrição)',score:nutScore,reason:mfp.food<calTarget-500?`Défice calórico excessivo (${mfp.food}/${calTarget} kcal)`:mfp.food>calTarget+500?`Excesso calórico (+${mfp.food-calTarget} kcal acima da meta)`:`Proteína abaixo do ideal (${mfp.protein}g vs meta ${protTarget}g)`,fix:`Ajusta a ingestão para ~${calTarget} kcal e garante ${protTarget}g de proteína (${Math.round(protTarget/4)}g por refeição).`},
+    {id:'ex',name:'Exercício (Treino)',score:exScore,reason:formVal<-25?`Fadiga acumulada elevada (Forma TSB ${formVal})`:`Volume semanal abaixo da meta (${wkKm.toFixed(1)}/${goalKm} km)`,fix:formVal<-25?`Faz 1 dia de recuperação ativa ou mobilidade antes de novo treino intenso.`:`Realiza uma corrida confortável de 25–35 min para recuperar a consistência semanal.`}
+  ].sort((a,b)=>a.score-b.score);
+
+  const worst=pillars[0];
+  const failMsg=worst.score<75
+    ?`⚠️ Onde estás a falhar: ${worst.name} (${worst.score}/100) — ${worst.reason}. 💡 ${worst.fix}`
+    :`✅ Os 3 pilares estão equilibrados! Ponto a otimizar: ${worst.name} (${worst.score}/100) — ${worst.fix}`;
+
+  const pCol=v=>v>=80?'#10b981':v>=60?'#eab308':'#ef4444';
+  return{
+    total,color,status,sleepScore,nutScore,exScore,slp,mfp,wkKm,goalKm,protTarget,calTarget,worst,pillars,failMsg,
+    sleep:{s:sleepScore+'%',c:pCol(sleepScore),lbl:slp.hours+'h'},
+    nutri:{s:nutScore+'%',c:pCol(nutScore)},
+    ex:{s:exScore+'%',c:pCol(exScore)}
+  };
+}
+
+// Modal para anexar Sono via Garmin Connect (Screenshot OCR, Ficheiro CSV/JSON Garmin ou ajuste rápido)
+window.openGarminSleep=function(){
+  let gm=document.getElementById('gm');if(!gm){gm=document.createElement('div');gm.id='gm';gm.className='ov';document.body.appendChild(gm)}
+  gm.classList.add('on');
+  const sc=calcReadiness(),slp=sc.slp;
+  gm.innerHTML=`
+  <div class="card" style="max-width:560px;margin:20px auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div><span class="pill" style="background:#0ea5e9;color:#fff">GARMIN SLEEP & SCORE</span><h3 style="margin:6px 0 0">⌚ Sono Garmin & Score Global</h3></div>
+      <button class="btn" id="gx">Fechar</button>
+    </div>
+    <div class="card" style="background:var(--bg);border-color:${sc.color};margin:8px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><b>🎯 Score Global KeepRun</b><div class="mu">${sc.status}</div></div>
+        <div style="font-size:30px;font-weight:900;color:${sc.color}">${sc.total}<span style="font-size:13px;color:var(--mu)">/100</span></div>
+      </div>
+      <div class="row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd)">
+        <div><b>😴 ${sc.sleepScore}%</b><div class="mu">Sono (${slp.hours}h · Score ${slp.score})</div></div>
+        <div><b>🥗 ${sc.nutScore}%</b><div class="mu">Nutrição (${sc.mfp.food} kcal)</div></div>
+        <div><b>🏃 ${sc.exScore}%</b><div class="mu">Exercício (${sc.wkKm.toFixed(1)}/${sc.goalKm}km)</div></div>
+      </div>
+      <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#18181b;font-size:13px;color:${sc.worst.score<75?'#fca5a5':'#6ee7b7'}">${sc.failMsg}</div>
+    </div>
+
+    <div class="card" style="background:var(--bg);margin:10px 0">
+      <b>📸 Anexar dados de Sono do Garmin Connect</b>
+      <p class="mu" style="margin:4px 0 8px">Anexa um <b>screenshot do Sono na app Garmin Connect</b> (leitura automática OCR) ou um ficheiro <b>CSV / JSON exportado do Garmin</b>:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label class="btn pri" style="cursor:pointer">⌚ Anexar Screenshot / Ficheiro Garmin<input type="file" id="grm-file" accept="image/*,.csv,.json,text/csv,application/json" style="display:none"></label>
+        <span id="grm-st" class="mu" style="font-size:12px">${slp.updatedAt?'Última sincronização: '+new Date(slp.updatedAt).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):'Pronto a importar do Garmin'}</span>
+      </div>
+    </div>
+
+    <div class="card" style="background:var(--bg);margin:10px 0">
+      <b>⚙️ Dados de Sono Garmin (ajuste ou confirmação)</b>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
+        <div><label class="mu" style="font-size:12px">Horas dormidas</label><input id="grm-h" type="number" step="0.1" value="${slp.hours}"></div>
+        <div><label class="mu" style="font-size:12px">Meta Sono (h)</label><input id="grm-tg" type="number" step="0.5" value="${slp.target||8}"></div>
+        <div><label class="mu" style="font-size:12px">Garmin Score (0-100)</label><input id="grm-sc" type="number" value="${slp.score}"></div>
+        <div><label class="mu" style="font-size:12px">Sono Profundo (h)</label><input id="grm-dp" type="number" step="0.1" value="${slp.deep||1.4}"></div>
+        <div><label class="mu" style="font-size:12px">Sono REM (h)</label><input id="grm-rm" type="number" step="0.1" value="${slp.rem||1.5}"></div>
+        <div><label class="mu" style="font-size:12px">FC Repouso (bpm)</label><input id="grm-rhr" type="number" value="${slp.rhr||54}"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn pri" id="grm-sv">Guardar e Atualizar Score</button>
+        <button class="btn" id="grm-mfp">🥗 Abrir Nutrição (MyFitnessPal)</button>
+      </div>
+    </div>
+  </div>`;
+  const q=s=>gm.querySelector(s);
+  q('#gx').onclick=()=>gm.classList.remove('on');
+  q('#grm-mfp').onclick=()=>{gm.classList.remove('on');if(window.KRW&&KRW.openMFP)KRW.openMFP()};
+  const refreshAll=()=>{if(window.renderWP)renderWP();enhanceStats();const woBox=document.querySelector('#kr-pro-wo');if(woBox)woBox.remove();enhanceWorkouts()};
+  q('#grm-sv').onclick=()=>{
+    setSleep({
+      hours:clamp(+q('#grm-h').value||7,1,16),
+      target:clamp(+q('#grm-tg').value||8,4,12),
+      score:clamp(+q('#grm-sc').value||75,1,100),
+      deep:clamp(+q('#grm-dp').value||1.2,0,8),
+      rem:clamp(+q('#grm-rm').value||1.4,0,8),
+      rhr:clamp(+q('#grm-rhr').value||54,30,120),
+      updatedAt:Date.now()
+    });
+    refreshAll();openGarminSleep();toast('Sono Garmin e Score Global atualizados!');
+  };
+  q('#grm-file').onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    const st=q('#grm-st');
+    try{
+      let raw='';
+      if(f.type.startsWith('image/')&&window.KRW&&KRW.loadTess){
+        st.textContent='⏳ A ler screenshot do Garmin Connect...';
+        const T=await KRW.loadTess();
+        const canvas=await KRW.preprocessImg(f);
+        const r=await T.recognize(canvas,'por+eng');
+        raw=r&&r.data&&r.data.text?r.data.text:'';
+      }else{
+        raw=await f.text();
+      }
+      const parsed=parseGarminSleep(raw);
+      setSleep(parsed);
+      refreshAll();openGarminSleep();
+      toast(`Garmin importado: ${parsed.hours}h de sono (Score ${parsed.score})!`);
+    }catch(err){
+      st.textContent='⚠️ Erro ao ler ficheiro. Ajusta os valores manualmente abaixo.';
+    }
+  };
+};
+
 // ---------- 11. Separador Eu (#stats): Fitness & Freshness, Esforço Relativo, Training Log, Objetivos e Estatísticas Cumulativas ----------
 function enhanceStats(){
   const s=document.querySelector('#stats');if(!s)return;
   const old=s.querySelector('#kr-pro-stats');if(old)old.remove();
-  const ff=calcFitnessCurve(42),prof=getProf(),goals=getGoals();
+  const ff=calcFitnessCurve(42),prof=getProf(),goals=getGoals(),rd=calcReadiness();
   const box=document.createElement('div');box.id='kr-pro-stats';
 
   // Gráfico SVG de Fitness & Freshness (Condição Física, Fadiga e Forma)
@@ -612,6 +787,22 @@ function enhanceStats(){
   const kmYCur=sumKm(acts.filter(a=>a.date>=yCur0)),kmYPrev=sumKm(acts.filter(a=>a.date>=yPrev0&&a.date<=yPrevSame));
 
   box.innerHTML=`
+  <div class="card" style="border-color:${rd.color}">
+    <div class="sh" style="margin-bottom:6px">
+      <div><b>🎯 Score Global KeepRun (Sono + Nutrição + Exercício)</b><div class="mu">${rd.status}</div></div>
+      <div style="font-size:28px;font-weight:900;color:${rd.color}">${rd.total}<span style="font-size:13px;color:var(--mu)">/100</span></div>
+    </div>
+    <div class="row" style="margin:8px 0">
+      <div><div class="big">${rd.sleepScore}%</div><div class="mu">😴 Sono Garmin (${rd.slp.hours}h)</div></div>
+      <div><div class="big">${rd.nutScore}%</div><div class="mu">🥗 Nutrição (${rd.mfp.food} kcal)</div></div>
+      <div><div class="big">${rd.exScore}%</div><div class="mu">🏃 Exercício (${rd.wkKm.toFixed(1)}/${rd.goalKm}km)</div></div>
+    </div>
+    <div style="margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--bg);font-size:13px;color:${rd.worst.score<75?'#fca5a5':'#6ee7b7'}">${rd.failMsg}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn pri" id="kr-grm-btn" style="padding:5px 12px;font-size:12px">⌚ Anexar Sono (Garmin)</button>
+      <button class="btn" id="kr-mfp-btn" style="padding:5px 12px;font-size:12px">🥗 Nutrição (MyFitnessPal)</button>
+    </div>
+  </div>
   <div class="card">
     <div class="sh" style="margin-bottom:6px"><b>📈 Fitness & Freshness (Condição Física, Fadiga e Forma)</b><span class="mu">${ff.status}</span></div>
     <div class="row" style="margin:8px 0">
@@ -665,6 +856,8 @@ function enhanceStats(){
   </div>`;
 
   s.appendChild(box);
+  if(box.querySelector('#kr-grm-btn'))box.querySelector('#kr-grm-btn').onclick=()=>openGarminSleep();
+  if(box.querySelector('#kr-mfp-btn'))box.querySelector('#kr-mfp-btn').onclick=()=>window.KRW&&KRW.openMFP&&KRW.openMFP();
   if(box.querySelector('#kr-st-imp'))box.querySelector('#kr-st-imp').onclick=()=>openStravaImport();
   if(box.querySelector('#kr-st-prf'))box.querySelector('#kr-st-prf').onclick=()=>openStravaProfiles();
   box.querySelector('#kr-add-goal').onclick=()=>{
@@ -688,9 +881,16 @@ function enhanceWorkouts(){
   const activePlanId=ls('kr_plan','p_5k'),plan=TRAINING_PLANS.find(p=>p.id===activePlanId)||TRAINING_PLANS[0];
   const doneSteps=getJSON('kr_plan_done',{});
   const selBody=ls('kr_rec_body','Joelho'),rec=RECOVER_ROUTINES[selBody]||RECOVER_ROUTINES['Joelho'];
+  const rd=calcReadiness();
 
   const box=document.createElement('div');box.id='kr-pro-wo';
   box.innerHTML=`
+  <div class="card" style="margin-top:12px;border-color:${rd.color}">
+    <div class="sh" style="margin-bottom:6px">
+      <div><b>⌚ Sono Garmin + Nutrição + Exercício</b><div class="mu">${rd.failMsg}</div></div>
+      <button class="btn pri" id="kr-wo-grm" style="padding:5px 10px;font-size:12px">⌚ Sono Garmin (${rd.total}/100)</button>
+    </div>
+  </div>
   <div class="card" style="margin-top:12px">
     <div class="sh" style="margin-bottom:6px"><b>📅 Planos de Treino Estruturados</b><span class="mu">${plan.weeks} semanas</span></div>
     <div class="chips" style="margin:6px 0">${TRAINING_PLANS.map(p=>`<button class="chip ${p.id===plan.id?'on':''}" data-pl="${p.id}">${esc(p.name)}</button>`).join('')}</div>
@@ -715,6 +915,7 @@ function enhanceWorkouts(){
   const anchor=el.querySelector('#wl');
   if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(box,anchor.nextSibling);
   else el.appendChild(box);
+  if(box.querySelector('#kr-wo-grm'))box.querySelector('#kr-wo-grm').onclick=()=>openGarminSleep();
 
   box.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{ss('kr_plan',b.dataset.pl);box.remove();enhanceWorkouts()});
   box.querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>{
@@ -1054,15 +1255,16 @@ function getAthleteSnap(){
   const bestRun=runs.slice().sort((a,b)=>(a.dur/a.dist)-(b.dur/b.dist))[0]||null;
   const lastAct=acts.slice().sort((a,b)=>b.date-a.date)[0]||null;
   const mfp=window.KRW&&KRW.mfpInfo?KRW.mfpInfo():null;
+  const readiness=calcReadiness();
   // Previsão de tempos de prova (Riegel T2 = T1 * (D2/D1)^1.06)
   const refDist=bestRun?bestRun.dist:5000,refTime=bestRun?bestRun.dur:1500;
   const pred=d=>fT(Math.round(refTime*Math.pow(d/refDist,1.06)));
-  return{ff,prof,wkKm,wkCount:wkActs.length,goalKm:+ls('kr_goal',20)||20,bestRun,lastAct,mfp,pred5k:pred(5000),pred10k:pred(10000),predHm:pred(21097),predMar:pred(42195)};
+  return{ff,prof,wkKm,wkCount:wkActs.length,goalKm:+ls('kr_goal',20)||20,bestRun,lastAct,mfp,readiness,pred5k:pred(5000),pred10k:pred(10000),predHm:pred(21097),predMar:pred(42195)};
 }
 
 // Motor de resposta do Personal Trainer AI (local + suporte opcional Gemini API)
 async function generateAIReply(userMsg){
-  const q=String(userMsg||'').toLowerCase(),s=getAthleteSnap();
+  const q=String(userMsg||'').toLowerCase(),s=getAthleteSnap(),rd=s.readiness;
   const L=window.KRW?KRW.lib(35,false,3):[];
   const findW=n=>L.find(w=>w.name===n)||L[0];
 
@@ -1070,7 +1272,7 @@ async function generateAIReply(userMsg){
   const gemKey=ls('kr_gemini_key','');
   if(gemKey){
     try{
-      const sys=`És o KeepRun AI Personal Trainer, um treinador desportivo de elite em português de Portugal. Dados reais do atleta: Peso ${s.prof.kg}kg, FC máx ${s.prof.maxHr}bpm, Km esta semana: ${s.wkKm.toFixed(1)}/${s.goalKm}km (${s.wkCount} treinos), Condição Física (CTL): ${s.ff.cur.fitness}, Fadiga (ATL): ${s.ff.cur.fatigue}, Forma (TSB): ${s.ff.cur.form} (${s.ff.status}). Previsões: 5km=${s.pred5k}, 10km=${s.pred10k}, Meia Maratona=${s.predHm}. ${s.mfp?`Nutrição MyFitnessPal: ${s.mfp.m.food}/${s.mfp.m.goal} kcal (${s.mfp.m.carbs}g HC, ${s.mfp.m.protein}g Prot).`:''} Responde de forma concisa, motivadora, prática e estruturada.`;
+      const sys=`És o KeepRun AI Personal Trainer, um treinador desportivo de elite em português de Portugal. Dados reais do atleta: Score Global=${rd.total}/100 (Sono Garmin ${rd.sleepScore}% [${rd.slp.hours}h], Nutrição ${rd.nutScore}%, Exercício ${rd.exScore}% — ${rd.failMsg}), Peso ${s.prof.kg}kg, FC máx ${s.prof.maxHr}bpm, Km esta semana: ${s.wkKm.toFixed(1)}/${s.goalKm}km (${s.wkCount} treinos), Condição Física (CTL): ${s.ff.cur.fitness}, Fadiga (ATL): ${s.ff.cur.fatigue}, Forma (TSB): ${s.ff.cur.form} (${s.ff.status}). Previsões: 5km=${s.pred5k}, 10km=${s.pred10k}, Meia Maratona=${s.predHm}. ${s.mfp?`Nutrição MyFitnessPal: ${s.mfp.m.food}/${s.mfp.m.goal} kcal (${s.mfp.m.carbs}g HC, ${s.mfp.m.protein}g Prot).`:''} Responde de forma concisa, motivadora, prática e estruturada.`;
       const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(gemKey)}`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({contents:[{role:'user',parts:[{text:sys+'\n\nPergunta do atleta: '+userMsg}]}]})
@@ -1086,6 +1288,13 @@ async function generateAIReply(userMsg){
   }
 
   // Respostas inteligentes especializadas baseadas na telemetria real do atleta
+  if(/score|falh|sono|dormir|garmin|prontid/.test(q)){
+    const wRec=rd.sleepScore<65?findW('Corrida de recuperação'):findW('Corrida fácil');
+    return{
+      text:`🎯 **Score Global KeepRun: ${rd.total}/100 (${rd.status})**\n• **😴 Sono (Garmin):** ${rd.sleepScore}% (${rd.slp.hours}h dormidas · Score Garmin ${rd.slp.score}/100)\n• **🥗 Alimentação:** ${rd.nutScore}% (${rd.mfp.food}/${rd.calTarget} kcal · ${rd.mfp.protein}g/${rd.protTarget}g proteína)\n• **🏃 Exercício:** ${rd.exScore}% (${rd.wkKm.toFixed(1)}/${rd.goalKm} km esta semana)\n\n${rd.failMsg}`,
+      workout:wRec
+    };
+  }
   if(/comer|refei[cç]|aliment|jantar|almo[cç]o|pequeno[-\s]*almo[cç]o|pr[eé][-\s]*treino|p[oó]s[-\s]*treino|amanh[aã]|energia|hidrat/.test(q)&&!/emagrec|perder peso|d[eé]fice/.test(q)){
     return{
       text:`🍽️ **O que comer para treinares no teu melhor:**\n\n• **Na véspera (hoje ao jantar):** Dá prioridade a hidratos de carbono complexos para encheres o glicogénio muscular (arroz, massa, batata ou batata-doce) + uma fonte de proteína magra (frango, peixe, ovos ou tofu), evitando gorduras pesadas ou fritos.\n• **Antes do treino (1h30 a 2h antes):** Banana com papas de aveia ou pão torrado com mel/compota e café ou água.\n• **Após o treino:** 25–35 g de proteína + fruta ou arroz/pão para acelerar a recuperação muscular.`,
@@ -1152,11 +1361,11 @@ window.openAICoach=function(){
 
   const fmtMsg=t=>esc(t).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
   const prompts=[
+    'Em que estou a falhar? (Score)',
     'Que treino faço hoje?',
     'O que comer antes de treinar?',
     'Analisar última corrida',
-    'Meus tempos 5k / 10k',
-    'Plano para a semana'
+    'Meus tempos 5k / 10k'
   ];
 
   gm.innerHTML=`
@@ -1231,5 +1440,7 @@ if(typeof origRenderWO==='function'){
   window.renderWO=function(){origRenderWO();enhanceWorkouts()};
 }
 setupRecPro();
-window.KRPro={analyzeAct,calcFitnessCurve,getActSegments,getMatchedActs,getAllSegs,getSegEfforts,openSegmentModal,TRAINING_PLANS,RECOVER_ROUTINES,decodePolyline,importStravaCSV,openStravaImport,openStravaProfiles,openAthleteProfile,openAICoach,generateAIReply};
+window.KRPro={analyzeAct,calcFitnessCurve,getActSegments,getMatchedActs,getAllSegs,getSegEfforts,openSegmentModal,TRAINING_PLANS,RECOVER_ROUTINES,decodePolyline,importStravaCSV,openStravaImport,openStravaProfiles,openAthleteProfile,openAICoach,generateAIReply,getSleep,setSleep,parseGarminSleep,calcReadiness,openGarminSleep};
+if(window.renderWP)renderWP();
+if(window.renderStats)renderStats();
 })();
