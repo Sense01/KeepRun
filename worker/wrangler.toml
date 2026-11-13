@@ -6,7 +6,6 @@ compatibility_date = "2025-11-01"
 FIREBASE_PROJECT = "keeprun-9055e"
 VAPID_PUBLIC = "BFi9RUlmn2JDZWUxI0sIpEsJwDqc6RgOlUAlB1LJYtkC8kJUaineSoo7K_I24fmWHEHIA4SP6GQSKndKNqtbPjE"
 
-# Passo obrigatório antes do deploy: cria o KV namespace `SUBS` e cola o id aqui (ou associa no Dashboard da Cloudflare):
-# [[kv_namespaces]]
-# binding = "SUBS"
-# id = "COLE_AQUI_O_KV_ID"
+[[kv_namespaces]]
+binding = "SUBS"
+id = "6d9f5bcb0c694492bd15ee57de8d74c8"
